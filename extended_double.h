@@ -11,9 +11,18 @@
 
 #define ED_ALWAYS_INLINE inline __attribute__((__always_inline__))
 #define ED_UNLIKELY(x) __builtin_expect((x),0)
+
+#ifndef ED_ENABLE_NAN_WARNING
 #define ED_ENABLE_NAN_WARNING 0
-#define ED_ENABLE_ASSERTS_NORMALIZATION 1
-#define ED_ENABLE_ASSERTS_OVERFLOW 1
+#endif
+
+#ifndef ED_ENABLE_ASSERTS_NORMALIZATION
+#define ED_ENABLE_ASSERTS_NORMALIZATION 0
+#endif
+
+#ifndef ED_ENABLE_ASSERTS_OVERFLOW
+#define ED_ENABLE_ASSERTS_OVERFLOW 0
+#endif
 
 struct extended_double {
 	/**
@@ -124,9 +133,9 @@ private:
 	/**
 	 * Excess added to exponents when stored in m_exponent_raw.
 	 */
-	static const int64_t EXPONENT_EXCESS = 0x4000000000000000; // = 2^62 = -INT64_MIN/2
+	static const int64_t EXPONENT_EXCESS = 0x2000000000000000; // = 2^61 = -INT64_MIN/2
 
-	static const int64_t EXPONENT_MAX = 0x3fffffffffffffff; // = 2^62 - 1
+	static const int64_t EXPONENT_MAX = 0x2000000000000000; // = 2^61
 
 	/**
 	 * Base-2 Logarithm of rescaling threshold.
@@ -158,6 +167,10 @@ private:
 	 */
 	static const uint32_t IEEE754_DOUBLE_EXP_MASK = 2047;
 
+	static const uint32_t IEEE754_DOUBLE_EXP_BITS = 11;
+
+	static const uint32_t IEEE754_DOUBLE_MAN_BITS = 52;
+
 	/**
 	 * Union type used to access the fields of IEEE754 double values.
 	 * Note that this is NON-PORTABLE! Its correctness depends on the
@@ -178,7 +191,8 @@ private:
 	 * Fractional part of an extended_double.
 	 *
 	 * For normalizes values (i.e., every user-visible instance of extended_double
-	 * that isn't zero, +/- Infinity or NaN), m_fraction lie within [ 1, 2 ).
+	 * that isn't zero, +/- Infinity or NaN), m_fraction lie within
+	 *   ( FRACTION_RESCALING_THRESHOLD , FRACTION_RESCALING_THRESHOLD_INV ).
 	 */
 	double m_fraction;
 
@@ -209,9 +223,11 @@ private:
 	void check_consistency() {
 #if ED_ENABLE_ASSERTS_NORMALIZATION
 		assert((m_fraction == 0.0) || (!std::isfinite(m_fraction)) ||
-			   ((fabs(m_fraction) >= 1.0) && (fabs(m_fraction) < 2.0)));
+			   ((fabs(m_fraction) > FRACTION_RESCALING_THRESHOLD) &&
+				(fabs(m_fraction) < FRACTION_RESCALING_THRESHOLD_INV)));
 #endif
 #if ED_ENABLE_ASSERTS_OVERFLOW
+		assert((m_exponent_raw - EXPONENT_EXCESS) % -FRACTION_RESCALING_THRESHOLD_LOG2 == 0);
 		assert((m_exponent_raw >= 0));
 		assert((m_exponent_raw <= EXPONENT_EXCESS + EXPONENT_MAX));
 #endif
@@ -223,94 +239,42 @@ private:
 	}
 
 	/**
-	 * Normalizes the fractional part to lie within [ 1, 2 ), and updates the
-	 * exponent field accordingly to keep the numerical value the same.
+	 * Normalizes the fractional part to lie within
+	 *   ( FRACTION_RESCALING_THRESHOLD , FRACTION_RESCALING_THRESHOLD_INV ),
+	 * and updates the exponent field accordingly.
 	 *
 	 * If the fractional value is sub-normal, the instance will afterwards
 	 * have numerical value 0.
 	 */
 	ED_ALWAYS_INLINE
 	void normalize() {
-		/* Make fields of native double "m_fraction" available */
-		ieee754_double_t v;
-		v.as_double = m_fraction;
-
-		/* Extract native exponent and determine if v is non-finite or sub-normal.
-		 * For sub-normal values, e_type is 0, while for inifinities its 1.
-		 * Note that zero is counted as being sub-normal here - as other sub-normal
-		 * numbers, its native exponent is the smallest possible value.
-		 */
-		const uint32_t e = v.as_fields.exponent;
-		const bool e_sub = (e == 0);
-		const bool e_inf = (e == IEEE754_DOUBLE_EXP_MASK);
-
-		/* Update exponent field. For normals, the fraction's native exponent
-		 * is added. For sub-normals (incl. zeros) the exponent is set to the
-		 * smallest value, while for infinities it is set to the largest.
-		 */
-		const uint64_t e_adj = m_exponent_raw + e - int64_t(IEEE754_DOUBLE_EXP_EXCESS);
-		m_exponent_raw = e_sub ? 0 : e_inf ? EXPONENT_EXCESS + EXPONENT_MAX : e_adj;
-
-		/* Update m_fraction's native exponent and mantissa. For non-finite
-		 * and sub-normal values, the original exponent is kept - this preserves
-		 * Zero, +/- Infinity and NaN. For normal values, the fraction's
-		 * exponent is set to 0 (i.e. raw value IEEE754_DOUBLE_EXP_EXCESS).
-		 * Sub-normal values are rounded down to zero by zeroing the mantissa,
-		 * to guarantee that the result is normalized.  Note that doing this for
-		 * all non-finite values would convert NaN to +/- Inf!
-		 */
-		const uint32_t ep = (e_sub || e_inf) ? e : IEEE754_DOUBLE_EXP_EXCESS;
-		const uint64_t mp = e_sub ? 0 : v.as_fields.mantissa;
-		v.as_fields.exponent = ep;
-		v.as_fields.mantissa = mp;
-		m_fraction = v.as_double;
+		const double f = fabs(m_fraction);
+		if (!((f > FRACTION_RESCALING_THRESHOLD) &&
+			  (f < FRACTION_RESCALING_THRESHOLD_INV)))
+			normalize_slowpath();
 	}
+
+	void normalize_slowpath();
 
 	/**
 	 * Rescales the fractional part of argument with the smaller absolute value such
 	 * that both arguments afterwards have the same exponent.
 	 *
 	 * The argument with the smaller absolute value will afterwards be generally
-	 * NOT normalized, i.e. its m_fraction will lie outside of [ 1, 2 ). The
-	 * smaller absolute value may become zero during the rescaling, in which
+	 * NOT normalized, i.e. its m_fraction will lie outside of
+	 *   ( FRACTION_RESCALING_THRESHOLD , FRACTION_RESCALING_THRESHOLD_INV ).
+	 * The smaller absolute value may become zero during the rescaling, in which
 	 * case the exponent will NOT necessarily be set to the smallest possible
 	 * value! Any public function that calls make_exponents_uniform must thus
 	 * ensure to eventually normalize its result before returning it.
 	 */
 	ED_ALWAYS_INLINE
 	static void make_exponents_uniform(extended_double& a, extended_double& b) {
-		/* Compute the difference between the two exponents (d_exp), and determine by
-		 * which power of two the fractional parts of a resp. b must be multiplied
-		 * (a_shift and b_shift). Note that the shift for the value with the larger
-		 * exponent is always zero. Also compute saturated versions of these shifts
-		 * which fit into a native double's exponent field.
-		 */
-		const int64_t d_exp = a.m_exponent_raw - b.m_exponent_raw;
-		const int64_t a_shift = std::min(d_exp, int64_t(0));
-		const int64_t b_shift = std::min(-d_exp, int64_t(0));
-		const int64_t a_shift_sat = std::max(a_shift, -int64_t(IEEE754_DOUBLE_EXP_EXCESS));
-		const int64_t b_shift_sat = std::max(b_shift, -int64_t(IEEE754_DOUBLE_EXP_EXCESS));
-
-		/* Compute 2^shift for a_shift and b_shift. Instead of using std::pow, the
-		 * saturated versions of the shifts are simply written into the exponent of
-		 * a native double. If one of the saturated values is IEEE754_DOUBLE_EXPONENT_EXCESS,
-		 * the resulting native double is zero, since in IEEE floating-point numbers
-		 * zero is encoded as minimal exponent plus zero mantissa.
-		 */
-		ieee754_double_t a_factor, b_factor;
-		a_factor.as_uint64 = b_factor.as_uint64 = 0;
-		a_factor.as_fields.exponent = a_shift_sat + int64_t(IEEE754_DOUBLE_EXP_EXCESS);
-		b_factor.as_fields.exponent = b_shift_sat + int64_t(IEEE754_DOUBLE_EXP_EXCESS);
-
-		/* Multiple a and b by 2^shift_a resp. 2^shift_b, and adjust the exponents accordingly.
-		 * Since either a_shift = a.exp - b.exp, or b_shift = b.exp - a.exp, the exponents
-		 * of a and b will afterwards agree.
-		 */
-		a.m_fraction *= a_factor.as_double;
-		b.m_fraction *= b_factor.as_double;
-		a.m_exponent_raw -= a_shift;
-		b.m_exponent_raw -= b_shift;
+		if (a.m_exponent_raw != b.m_exponent_raw)
+			make_exponents_uniform_slowpath(a, b);
 	}
+
+	static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
 
 	ED_ALWAYS_INLINE
 	double convert_to_double() const {
