@@ -12,9 +12,17 @@
 
 BOOST_AUTO_TEST_SUITE(extended_double_tests)
 
-BOOST_AUTO_TEST_CASE(non_finite) {
+BOOST_AUTO_TEST_CASE(infinities) {
 	const extended_double v_pinf(std::numeric_limits<double>::infinity());
 	const extended_double v_ninf(-std::numeric_limits<double>::infinity());
+
+
+	BOOST_CHECK_EQUAL(extended_double_cast<double>(v_pinf),
+					  std::numeric_limits<double>::infinity());
+	BOOST_CHECK_EQUAL(extended_double_cast<double>(v_ninf),
+					  -std::numeric_limits<double>::infinity());
+	BOOST_CHECK(!isfinite(v_pinf));
+	BOOST_CHECK(!isfinite(v_ninf));
 
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf);
 	BOOST_CHECK_EQUAL(v_ninf, v_ninf);

@@ -105,19 +105,6 @@ struct extended_double {
 		return extended_double(-fraction(), exponent());
 	}
 
-	ED_ALWAYS_INLINE
-	double to_double() const {
-		const int32_t e_sat = std::max(std::min(exponent(),
-												int64_t(IEEE754_DOUBLE_EXP_EXCESS + 1)),
-									   -int64_t(IEEE754_DOUBLE_EXP_EXCESS));
-
-		double_access_t factor;
-		factor.as_uint64 = 0;
-		factor.as_fields.exponent = (e_sat + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
-
-		return fraction() * factor.as_double;
-	}
-
 	friend extended_double fabs(const extended_double& v);
 	friend double log(const extended_double& v);
 
@@ -127,6 +114,9 @@ struct extended_double {
 	friend bool operator!=(extended_double a, extended_double b);
 	friend bool operator>=(extended_double a, extended_double b);
 	friend bool operator>(extended_double a, extended_double b);
+
+	template<typename T>
+	friend T extended_double_cast(const extended_double& v);
 
 	friend std::ostream& operator<<(std::ostream& dst, const extended_double& v);
 
@@ -156,10 +146,22 @@ private:
 	 */
 	static const double LOG2;
 
+	/**
+	 * Excess used for exponents of IEEE754 double values.
+	 */
 	static const uint32_t IEEE754_DOUBLE_EXP_EXCESS = 1023;
 
+	/**
+	 * Mask for the exponent field of IEEE754 double values.
+	 */
 	static const uint32_t IEEE754_DOUBLE_EXP_MASK = 2047;
 
+	/**
+	 * Union type used to access the fields of IEEE754 double values.
+	 * Note that this is NON-PORTABLE! Its correctness depends on the
+	 * bit-field layout chosen by the compiler! It does work, howerver,
+	 * for GCC (and compatible compilers) on AMD64.
+	 */
 	typedef union {
 		struct {
 			uint64_t mantissa: 52;
@@ -168,21 +170,27 @@ private:
 		} as_fields ;
 		uint64_t as_uint64;
 		double as_double;
-	} double_access_t;
+	} ieee754_double_t;
 
 	/**
 	 * Fractional part of an extended_double.
 	 *
-	 * For normalizes values (i.e., every user-visible instance of extended_double),
-	 * the absolute value of m_fraction is greater than FRACTION_RESCALING_THRESHOLD.
-	 * FRACTION_RESCALING_THRESHOLD is chosen such that the product of two fractional
-	 * parts (as the product of two doubles) doesn't underflow to zero.
-	 *
-	 * Currently, no upper bound is imposed on m_fraction, meaning that products MAY
-	 * overflow to +/- infinity!
+	 * For normalizes values (i.e., every user-visible instance of extended_double
+	 * that isn't zero, +/- Infinity or NaN), m_fraction lie within [ 1, 2 ).
 	 */
 	double m_fraction;
 
+	/**
+	 * Exponent of an extended_double.
+	 *
+	 * The exponent is stored with an excess of EXPONENT_EXCESS, which ensures
+	 * that the smallest allowed exponent (-EXPONENT_EXCESS) has bit pattern 0.
+	 *
+	 * For non-normal values (i.e. Zero, +/- Infinity, Nan) the exponent's raw
+	 * value is zero. Note that therfore, contrary to how things are done in
+	 * IEEE754, the logical value of the exponent is -EXPONENT_EXCESS for
+	 * +/- Infinity and NaN!
+	 */
 	int64_t m_exponent_raw;
 
 	/**
@@ -208,19 +216,45 @@ private:
 #endif
 	}
 
+	/**
+	 * Normalizes the fractional part to lie within [ 1, 2 ), and updates the
+	 * exponent field accordingly to keep the numerical value the same.
+	 *
+	 * If the fractional value is sub-normal, the instance will afterwards
+	 * have numerical value 0.
+	 */
 	ED_ALWAYS_INLINE
 	void normalize() {
-		double_access_t v;
+		/* Make fields of native double "m_fraction" available */
+		ieee754_double_t v;
 		v.as_double = m_fraction;
 
+		/* Extract native exponent and determine if v is non-finite or sub-normal.
+		 * For sub-normal values, e_type is 0, while for inifinities its 1.
+		 * Note that zero is counted as being sub-normal here - as other sub-normal
+		 * numbers, its native exponent is the smallest possible value.
+		 */
 		const uint32_t e = v.as_fields.exponent;
-		const bool nonfinite = (((e + 1) & IEEE754_DOUBLE_EXP_MASK) <= 1);
+		const uint32_t e_type = (e + 1) & IEEE754_DOUBLE_EXP_MASK;
 
+		/* Update exponent field. For non-finite or subnormal values, its
+		 * set to the smallest possible value (even for +/- Inf!)
+		 */
 		m_exponent_raw += e - int64_t(IEEE754_DOUBLE_EXP_EXCESS);
-		m_exponent_raw = nonfinite ? 0 : m_exponent_raw;
+		m_exponent_raw = (e_type <= 1) ? 0 : m_exponent_raw;
 
-		const uint32_t ep = nonfinite ? e : IEEE754_DOUBLE_EXP_EXCESS;
+		/* Update m_fraction's native exponent and mantissa. For non-finite
+		 * and sub-normal values, the original exponent is kept - this preserves
+		 * Zero, +/- Infinity and NaN. For all sub-normal values, the mantissa
+		 * is set to 0, i.e. they are converted to zero here! Note that doing
+		 * this for all non-finite values would convert NaN into +/- Inf...
+		 * For finite (and non-zero) values, the exponent is set to 0 (i.e. raw
+		 * value IEEE754_DOUBLE_EXP_EXCESS).
+		 */
+		const uint32_t ep = (e_type <= 1) ? e : IEEE754_DOUBLE_EXP_EXCESS;
+		const uint64_t mp = e_type ? v.as_fields.mantissa : 0 ;
 		v.as_fields.exponent = ep;
+		v.as_fields.mantissa = mp;
 		m_fraction = v.as_double;
 	}
 
@@ -229,11 +263,11 @@ private:
 	 * that both arguments afterwards have the same exponent.
 	 *
 	 * The argument with the smaller absolute value will afterwards be generally
-	 * NOT normalized, i.e. its m_fraction may be <= FRACTION_RESCALING_THRESHOLD.
-	 * Also, if the value becomes zero during the rescaling, its exponent won't
-	 * be set to -EXPONENT_EXCESS! Any public function that calls make_exponents_uniform
-	 * must thus ensure to call one of the normalization functions afterwards, to
-	 * avoid leaking non-normalized values.
+	 * NOT normalized, i.e. its m_fraction will lie outside of [ 1, 2 ). The
+	 * smaller absolute value may become zero during the rescaling, in which
+	 * case the exponent will NOT necessarily be set to the smallest possible
+	 * value! Any public function that calls make_exponents_uniform must thus
+	 * ensure to eventually normalize its result before returning it.
 	 */
 	ED_ALWAYS_INLINE
 	static void make_exponents_uniform(extended_double& a, extended_double& b) {
@@ -255,7 +289,7 @@ private:
 		 * the resulting native double is zero, since in IEEE floating-point numbers
 		 * zero is encoded as minimal exponent plus zero mantissa.
 		 */
-		double_access_t a_factor, b_factor;
+		ieee754_double_t a_factor, b_factor;
 		a_factor.as_uint64 = b_factor.as_uint64 = 0;
 		a_factor.as_fields.exponent = a_shift_sat + int64_t(IEEE754_DOUBLE_EXP_EXCESS);
 		b_factor.as_fields.exponent = b_shift_sat + int64_t(IEEE754_DOUBLE_EXP_EXCESS);
@@ -268,6 +302,19 @@ private:
 		b.m_fraction *= b_factor.as_double;
 		a.m_exponent_raw -= a_shift;
 		b.m_exponent_raw -= b_shift;
+	}
+
+	ED_ALWAYS_INLINE
+	double convert_to_double() const {
+		const int32_t e_sat = std::max(std::min(exponent(),
+												int64_t(IEEE754_DOUBLE_EXP_EXCESS + 1)),
+									   -int64_t(IEEE754_DOUBLE_EXP_EXCESS - 1));
+
+		ieee754_double_t factor;
+		factor.as_uint64 = 0;
+		factor.as_fields.exponent = (e_sat + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
+
+		return fraction() * factor.as_double;
 	}
 };
 
@@ -352,7 +399,7 @@ T extended_double_cast(const extended_double& v);
 template<>
 ED_ALWAYS_INLINE
 double extended_double_cast<double>(const extended_double& v) {
-	return v.to_double();
+	return v.convert_to_double();
 }
 
 ED_ALWAYS_INLINE
