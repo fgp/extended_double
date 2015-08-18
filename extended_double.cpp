@@ -112,4 +112,6 @@ std::ostream& operator<<(std::ostream& dst, const extended_double& v) {
 		const double f = std::frexp(v.fraction(), &e);
 		dst << f << "*2^" << (v.exponent() + static_cast<int64_t>(e));
 	}
+    
+    return dst;
 }
