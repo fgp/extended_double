@@ -16,7 +16,6 @@ BOOST_AUTO_TEST_CASE(infinities) {
 	const extended_double v_pinf(std::numeric_limits<double>::infinity());
 	const extended_double v_ninf(-std::numeric_limits<double>::infinity());
 
-
 	BOOST_CHECK_EQUAL(extended_double_cast<double>(v_pinf),
 					  std::numeric_limits<double>::infinity());
 	BOOST_CHECK_EQUAL(extended_double_cast<double>(v_ninf),
@@ -35,11 +34,15 @@ BOOST_AUTO_TEST_CASE(infinities) {
 	BOOST_CHECK(v_pinf >= v_ninf);
 	BOOST_CHECK(v_pinf > v_ninf);
 
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf + 1.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf - 1.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf + v_pinf);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf - v_ninf);
+
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 0.5);
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 1.0);
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 2.0);
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf * v_pinf);
-	BOOST_CHECK_EQUAL(v_pinf, v_ninf * v_ninf);
 	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 0.5);
 	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 1.0);
 	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 2.0);
@@ -47,9 +50,25 @@ BOOST_AUTO_TEST_CASE(infinities) {
 	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -0.5);
 	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -1.0);
 	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -2.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf * v_ninf);
 	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -0.5);
 	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -1.0);
 	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -2.0);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf * v_pinf);
+
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 0.5);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 1.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 2.0);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 0.5);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 1.0);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 2.0);
+
+	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -0.5);
+	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -1.0);
+	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -2.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -0.5);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -1.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -2.0);
 }
 
 BOOST_AUTO_TEST_CASE(basic)

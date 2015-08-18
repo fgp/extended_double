@@ -13,7 +13,7 @@
 #define ED_UNLIKELY(x) __builtin_expect((x),0)
 #define ED_ENABLE_NAN_WARNING 0
 #define ED_ENABLE_ASSERTS_NORMALIZATION 1
-#define ED_ENABLE_FPE 1
+#define ED_ENABLE_ASSERTS_OVERFLOW 1
 
 struct extended_double {
 	/**
@@ -126,6 +126,8 @@ private:
 	 */
 	static const int64_t EXPONENT_EXCESS = 0x4000000000000000; // = 2^62 = -INT64_MIN/2
 
+	static const int64_t EXPONENT_MAX = 0x3fffffffffffffff; // = 2^62 - 1
+
 	/**
 	 * Base-2 Logarithm of rescaling threshold.
 	 */
@@ -186,10 +188,10 @@ private:
 	 * The exponent is stored with an excess of EXPONENT_EXCESS, which ensures
 	 * that the smallest allowed exponent (-EXPONENT_EXCESS) has bit pattern 0.
 	 *
-	 * For non-normal values (i.e. Zero, +/- Infinity, Nan) the exponent's raw
-	 * value is zero. Note that therfore, contrary to how things are done in
-	 * IEEE754, the logical value of the exponent is -EXPONENT_EXCESS for
-	 * +/- Infinity and NaN!
+	 * The exponent is handled as in IEEE754. For zero values, it is set to
+	 * the smallest allowed value (i.e. -EXPONENT_EXCESS, meaning raw value 0).
+	 * For Infinity and +/- NaN, it is set to the largest allowed value,
+	 * meaning EXPONENT_MAX (i.e. raw value EXPONENT_EXCESS + EXPONENT_MAX).
 	 */
 	int64_t m_exponent_raw;
 
@@ -208,6 +210,10 @@ private:
 #if ED_ENABLE_ASSERTS_NORMALIZATION
 		assert((m_fraction == 0.0) || (!std::isfinite(m_fraction)) ||
 			   ((fabs(m_fraction) >= 1.0) && (fabs(m_fraction) < 2.0)));
+#endif
+#if ED_ENABLE_ASSERTS_OVERFLOW
+		assert((m_exponent_raw >= 0));
+		assert((m_exponent_raw <= EXPONENT_EXCESS + EXPONENT_MAX));
 #endif
 #if ED_ENABLE_NAN_WARNING
 		if (ED_UNLIKELY(!std::isfinite(m_fraction))) {
@@ -235,24 +241,26 @@ private:
 		 * numbers, its native exponent is the smallest possible value.
 		 */
 		const uint32_t e = v.as_fields.exponent;
-		const uint32_t e_type = (e + 1) & IEEE754_DOUBLE_EXP_MASK;
+		const bool e_sub = (e == 0);
+		const bool e_inf = (e == IEEE754_DOUBLE_EXP_MASK);
 
-		/* Update exponent field. For non-finite or subnormal values, its
-		 * set to the smallest possible value (even for +/- Inf!)
+		/* Update exponent field. For normals, the fraction's native exponent
+		 * is added. For sub-normals (incl. zeros) the exponent is set to the
+		 * smallest value, while for infinities it is set to the largest.
 		 */
-		m_exponent_raw += e - int64_t(IEEE754_DOUBLE_EXP_EXCESS);
-		m_exponent_raw = (e_type <= 1) ? 0 : m_exponent_raw;
+		const uint64_t e_adj = m_exponent_raw + e - int64_t(IEEE754_DOUBLE_EXP_EXCESS);
+		m_exponent_raw = e_sub ? 0 : e_inf ? EXPONENT_EXCESS + EXPONENT_MAX : e_adj;
 
 		/* Update m_fraction's native exponent and mantissa. For non-finite
 		 * and sub-normal values, the original exponent is kept - this preserves
-		 * Zero, +/- Infinity and NaN. For all sub-normal values, the mantissa
-		 * is set to 0, i.e. they are converted to zero here! Note that doing
-		 * this for all non-finite values would convert NaN into +/- Inf...
-		 * For finite (and non-zero) values, the exponent is set to 0 (i.e. raw
-		 * value IEEE754_DOUBLE_EXP_EXCESS).
+		 * Zero, +/- Infinity and NaN. For normal values, the fraction's
+		 * exponent is set to 0 (i.e. raw value IEEE754_DOUBLE_EXP_EXCESS).
+		 * Sub-normal values are rounded down to zero by zeroing the mantissa,
+		 * to guarantee that the result is normalized.  Note that doing this for
+		 * all non-finite values would convert NaN to +/- Inf!
 		 */
-		const uint32_t ep = (e_type <= 1) ? e : IEEE754_DOUBLE_EXP_EXCESS;
-		const uint64_t mp = e_type ? v.as_fields.mantissa : 0 ;
+		const uint32_t ep = (e_sub || e_inf) ? e : IEEE754_DOUBLE_EXP_EXCESS;
+		const uint64_t mp = e_sub ? 0 : v.as_fields.mantissa;
 		v.as_fields.exponent = ep;
 		v.as_fields.mantissa = mp;
 		m_fraction = v.as_double;
@@ -308,7 +316,7 @@ private:
 	double convert_to_double() const {
 		const int32_t e_sat = std::max(std::min(exponent(),
 												int64_t(IEEE754_DOUBLE_EXP_EXCESS + 1)),
-									   -int64_t(IEEE754_DOUBLE_EXP_EXCESS - 1));
+									   -int64_t(IEEE754_DOUBLE_EXP_EXCESS));
 
 		ieee754_double_t factor;
 		factor.as_uint64 = 0;
