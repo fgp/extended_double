@@ -29,7 +29,7 @@ extern ::boost::unit_test::test_suite* init_unit_test_suite( int argc, char* arg
  * Declaration copied from `boost/test/impl/test_main.ipp`
  */
 int test_main(int, char*[]) {
-    return 0;
+	return 0;
 }
 
 /**
@@ -38,8 +38,8 @@ int test_main(int, char*[]) {
  * Copied from `boost/test/impl/unit_test_main.ipp`
  */
 int cpp_main(int argc, char** argv) {
-    boost::unit_test::init_unit_test_func init_func = &init_unit_test_suite;
-    return ::boost::unit_test::unit_test_main(init_func, argc, argv);
+	boost::unit_test::init_unit_test_func init_func = &init_unit_test_suite;
+	return ::boost::unit_test::unit_test_main(init_func, argc, argv);
 }
 
 /**
@@ -54,7 +54,7 @@ int cpp_main(int argc, char** argv) {
  */
 int main(int argc, char** argv)
 {
-    const int r = ::boost::prg_exec_monitor_main(&cpp_main, argc, argv);
-    
-    return r;
+	const int r = ::boost::prg_exec_monitor_main(&cpp_main, argc, argv);
+
+	return r;
 }
