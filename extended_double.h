@@ -248,10 +248,20 @@ private:
 	 */
 	ED_ALWAYS_INLINE
 	void normalize() {
+#if 0
 		const double f = fabs(m_fraction);
-		if (!((f > FRACTION_RESCALING_THRESHOLD) &&
-			  (f < FRACTION_RESCALING_THRESHOLD_INV)))
+		if ((f <= FRACTION_RESCALING_THRESHOLD) ||
+            (f >= FRACTION_RESCALING_THRESHOLD_INV))
 			normalize_slowpath();
+#else
+        ieee754_double_t v;
+        v.as_double = m_fraction;
+        const uint32_t e = (v.as_fields.exponent
+                            - IEEE754_DOUBLE_EXP_EXCESS
+                            - FRACTION_RESCALING_THRESHOLD_LOG2 - 1);
+        if (e >= (-2*FRACTION_RESCALING_THRESHOLD_LOG2 - 1))
+            normalize_slowpath();
+#endif
 	}
 
 	void normalize_slowpath();

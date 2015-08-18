@@ -39,36 +39,129 @@ BOOST_AUTO_TEST_CASE(infinities) {
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf + v_pinf);
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf - v_ninf);
 
-	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 0.5);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 1e-100);
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 1.0);
-	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 2.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf * 1e100);
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf * v_pinf);
-	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 0.5);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 1e-100);
 	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 1.0);
-	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 2.0);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf * 1e100);
 
-	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -0.5);
+	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -1e-100);
 	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -1.0);
-	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -2.0);
+	BOOST_CHECK_EQUAL(v_ninf, v_pinf * -1e100);
 	BOOST_CHECK_EQUAL(v_pinf, v_ninf * v_ninf);
-	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -0.5);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -1e-100);
 	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -1.0);
-	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -2.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf * -1e100);
 	BOOST_CHECK_EQUAL(v_ninf, v_ninf * v_pinf);
 
-	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 0.5);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 1e-100);
 	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 1.0);
-	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 2.0);
-	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 0.5);
+	BOOST_CHECK_EQUAL(v_pinf, v_pinf / 1e100);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 1e-100);
 	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 1.0);
-	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 2.0);
+	BOOST_CHECK_EQUAL(v_ninf, v_ninf / 1e100);
 
-	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -0.5);
+	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -1e-100);
 	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -1.0);
-	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -2.0);
-	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -0.5);
+	BOOST_CHECK_EQUAL(v_ninf, v_pinf / -1e100);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -1e-100);
 	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -1.0);
-	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -2.0);
+	BOOST_CHECK_EQUAL(v_pinf, v_ninf / -1e100);
+}
+
+BOOST_AUTO_TEST_CASE(normalization) {
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -255)).exponent(), 0);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,    0)).exponent(), 0);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  255)).exponent(), 0);
+    
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -256)).exponent(), -256);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  256)).exponent(),  256);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -511)).exponent(), -256);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  511)).exponent(),  256);
+    
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -512)).exponent(), -512);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  512)).exponent(),  512);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -767)).exponent(), -512);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  767)).exponent(),  512);
+    
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -768)).exponent(), -768);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  768)).exponent(),  768);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -1022)).exponent(), -768);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  1023)).exponent(),  768);
+    
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 0))),
+                      1.0);
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 255))),
+                      std::ldexp(1.0, 255));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 256))),
+                      std::ldexp(1.0, 256));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 511))),
+                      std::ldexp(1.0, 511));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 512))),
+                      std::ldexp(1.0, 512));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 767))),
+                      std::ldexp(1.0, 767));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 768))),
+                      std::ldexp(1.0, 768));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 1023))),
+                      std::ldexp(1.0, 1023));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0,  1024))),
+                      std::numeric_limits<double>::infinity());
+    
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 0))),
+                      -1.0);
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 255))),
+                      std::ldexp(-1.0, 255));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 256))),
+                      std::ldexp(-1.0, 256));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 511))),
+                      std::ldexp(-1.0, 511));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 512))),
+                      std::ldexp(-1.0, 512));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 767))),
+                      std::ldexp(-1.0, 767));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 768))),
+                      std::ldexp(-1.0, 768));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, 1023))),
+                      std::ldexp(-1.0, 1023));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0,  1024))),
+                      -std::numeric_limits<double>::infinity());
+    
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -255))),
+                      std::ldexp(1.0, -255));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -256))),
+                      std::ldexp(1.0, -256));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -511))),
+                      std::ldexp(1.0, -511));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -512))),
+                      std::ldexp(1.0, -512));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -767))),
+                      std::ldexp(1.0, -767));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -768))),
+                      std::ldexp(1.0, -768));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -1022))),
+                      std::ldexp(1.0, -1022));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, -1023))),
+                      0.0);
+    
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -255))),
+                      std::ldexp(-1.0, -255));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -256))),
+                      std::ldexp(-1.0, -256));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -511))),
+                      std::ldexp(-1.0, -511));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -512))),
+                      std::ldexp(-1.0, -512));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -767))),
+                      std::ldexp(-1.0, -767));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -768))),
+                      std::ldexp(-1.0, -768));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -1022))),
+                      std::ldexp(-1.0, -1022));
+    BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(-1.0, -1023))),
+                      0.0);
 }
 
 BOOST_AUTO_TEST_CASE(basic)
