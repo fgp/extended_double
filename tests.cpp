@@ -1,9 +1,9 @@
 /*
- *  test/benchmark.cpp
- *  hoppe
+ *  tests.cpp
+ *  extended_double
  *
- *  Created by Florian Pflug on 03.12.2014.
- *  Copyright (c) 2014 Florian Pflug. All rights reserved.
+ *  Created by Florian Pflug on 17.08.2015.
+ *  Copyright (c) 2015 Florian Pflug. All rights reserved.
  */
 
 #include <boost/test/unit_test.hpp>
