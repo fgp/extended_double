@@ -10,7 +10,16 @@
 #include <cassert>
 
 #define ED_ALWAYS_INLINE inline __attribute__((__always_inline__))
-#define ED_UNLIKELY(x) __builtin_expect((x),0)
+#define ED_UNLIKELY(x) __builtin_expect((x), 0)
+#define ED_LIKELY(x) __builtin_expect((x), 1)
+
+#ifndef ED_ASSERT
+#ifdef NDEBUG
+#define ED_ASSERT(x)
+#else
+#define ED_ASSERT(x) assert(x)
+#endif
+#endif
 
 #ifndef ED_ENABLE_NAN_WARNING
 #define ED_ENABLE_NAN_WARNING 0
@@ -94,8 +103,9 @@ struct extended_double {
 	ED_ALWAYS_INLINE
 	extended_double& operator*=(const extended_double& v) {
 		m_fraction *= v.m_fraction;
-		m_exponent_raw += v.exponent();
-		normalize();
+		m_exponent_raw = std::max(m_exponent_raw + v.exponent(), int64_t(0));
+		if (fabs(m_fraction) > FRACTION_RESCALING_THRESHOLD)
+			normalize_after_multiply_slowpath();
 		check_consistency();
 		return *this;
 	}
@@ -156,6 +166,11 @@ private:
 	 * Excess used for exponents of IEEE754 double values.
 	 */
 	static const uint32_t IEEE754_DOUBLE_EXP_EXCESS = 1023;
+
+	/**
+	 * Raw exponent of IEEE754 double values +/- Infinity.
+ 	 */
+	static const uint32_t IEEE754_DOUBLE_EXP_INF_RAW = 2047;
 
 	/**
 	 * Mask for the exponent field of IEEE754 double values.
@@ -232,6 +247,8 @@ private:
 		}
 #endif
 	}
+
+	void normalize_after_multiply_slowpath();
 
 	/**
 	 * Normalizes the fractional part to lie within

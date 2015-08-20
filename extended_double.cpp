@@ -12,6 +12,8 @@ log(2.0);
 
 const uint32_t extended_double::IEEE754_DOUBLE_EXP_EXCESS;
 
+const uint32_t extended_double::IEEE754_DOUBLE_EXP_INF_RAW;
+
 const uint32_t extended_double::IEEE754_DOUBLE_EXP_MASK;
 
 const uint32_t extended_double::IEEE754_DOUBLE_EXP_BITS;
@@ -33,6 +35,43 @@ double extended_double::convert_to_double() const {
 	/* Update native's exponent and return */
 	v.as_fields.exponent = uint32_t(e_sat + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
 	return v.as_double;
+}
+
+void extended_double::normalize_after_multiply_slowpath() {
+	/* Make fields of native double "m_fraction" available */
+	ieee754_double_t f;
+	f.as_double = m_fraction;
+	const uint32_t f_e = f.as_fields.exponent;
+
+	if (ED_LIKELY(f_e != IEEE754_DOUBLE_EXP_INF_RAW)) {
+		/* Fraction is neither +/- Infinity nor NaN */
+
+		/* If the fraction increased beyond the rescaling threshold, increase
+		 * the exponent and rescale the fraction. Note after multiplication,
+		 * the fraction is certainly less than FRACTION_RESCALING_THRESHOLD ^ 2,
+		 * so a single rescaling step always suffices here.
+		 */
+		const bool rescale = (f_e >= (FRACTION_RESCALING_THRESHOLD_LOG2
+									  + IEEE754_DOUBLE_EXP_EXCESS));
+		m_exponent_raw += rescale * FRACTION_RESCALING_THRESHOLD_LOG2;
+
+		if (ED_LIKELY(m_exponent_raw < EXPONENT_EXCESS + EXPONENT_MAX)) {
+			/* Exponent still valid. Update fraction to reduced exponent */
+			f.as_fields.exponent = f_e - FRACTION_RESCALING_THRESHOLD_LOG2;
+			m_fraction = f.as_double;
+		}
+		else {
+			/* Exponent overflowed. Set value to +/- Infinity */
+			m_exponent_raw = EXPONENT_EXCESS + EXPONENT_MAX;
+			f.as_fields.exponent = IEEE754_DOUBLE_EXP_INF_RAW;
+			f.as_fields.mantissa = 0;
+			m_fraction = f.as_double;
+		}
+	}
+	else {
+		/* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
+		m_exponent_raw = EXPONENT_EXCESS + EXPONENT_MAX;
+	}
 }
 
 void extended_double::normalize_slowpath() {
