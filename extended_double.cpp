@@ -2,13 +2,10 @@
 
 const int64_t extended_double::EXPONENT_EXCESS;
 
-const int64_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
+const int32_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
 
 const double extended_double::FRACTION_RESCALING_THRESHOLD =
 std::ldexp(1.0, extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
-
-const double extended_double::FRACTION_RESCALING_THRESHOLD_INV =
-std::ldexp(1.0, -extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
 
 const double extended_double::LOG2 =
 log(2.0);
@@ -20,6 +17,23 @@ const uint32_t extended_double::IEEE754_DOUBLE_EXP_MASK;
 const uint32_t extended_double::IEEE754_DOUBLE_EXP_BITS;
 
 const uint32_t extended_double::IEEE754_DOUBLE_MAN_BITS;
+
+double extended_double::convert_to_double() const {
+	/* Make fields of native double "m_fraction" available */
+	ieee754_double_t v;
+	v.as_double = m_fraction;
+
+	/* Add exponent to native exponent, and clamp to valid IEEE754 double range */
+	const int32_t e_sat = int32_t(std::max(std::min(exponent()
+													+ int64_t(v.as_fields.exponent)
+													- int64_t(IEEE754_DOUBLE_EXP_EXCESS),
+													int64_t(IEEE754_DOUBLE_EXP_EXCESS + 1)),
+										   -int64_t(IEEE754_DOUBLE_EXP_EXCESS)));
+
+	/* Update native's exponent and return */
+	v.as_fields.exponent = uint32_t(e_sat + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
+	return v.as_double;
+}
 
 void extended_double::normalize_slowpath() {
 	/* Make fields of native double "m_fraction" available */
@@ -40,17 +54,17 @@ void extended_double::normalize_slowpath() {
      * For sub-normals (incl. zeros) the exponent is set to the smallest value,
      * while for infinities it is set to the largest.
      */
+
+	const int32_t e_keep = (e + 1) % FRACTION_RESCALING_THRESHOLD_LOG2;
 	const int32_t e_val = int32_t(e) - int32_t(IEEE754_DOUBLE_EXP_EXCESS);
-	const int32_t e_delta = (int32_t(-FRACTION_RESCALING_THRESHOLD_LOG2) *
-			                  (e_val / int32_t(-FRACTION_RESCALING_THRESHOLD_LOG2)));
-	const int32_t e_keep = e_val - e_delta;
+	const int32_t e_delta = e_val - e_keep;
 	const int64_t e_adj = m_exponent_raw + e_delta;
 	m_exponent_raw = e_sub ? 0 : e_inf ? EXPONENT_EXCESS + EXPONENT_MAX : e_adj;
 
 	/* Update m_fraction's native exponent and mantissa. For non-finite
      * and sub-normal values, the original exponent is kept - this preserves
      * Zero, +/- Infinity and NaN. For normal values, the remainder of the
-     * exponent mod -FRACTION_RESCALING_THRESHOLD_LOG2 is subtracted, since
+     * exponent mod FRACTION_RESCALING_THRESHOLD_LOG2 is subtracted, since
      * that part of the exponent was "moved" to the exponent field above.
      * Sub-normal values are rounded down to zero by zeroing the mantissa,
      * to guarantee that the result is normalized.  Note that doing this for

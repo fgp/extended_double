@@ -140,17 +140,12 @@ private:
 	/**
 	 * Base-2 Logarithm of rescaling threshold.
 	 */
-	static const int64_t FRACTION_RESCALING_THRESHOLD_LOG2 = -256;
+	static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 256;
 
 	/**
 	 * Rescaling threshold, i.e. 2^FRACTION_RESCALING_THRESHOLD_LOG2
 	 */
 	static const double FRACTION_RESCALING_THRESHOLD;
-
-	/**
-	 * Multiplicative inverse of FRACTION_RESCALING_THRESHOLD, i.e. 2^-FRACTION_RESCALING_THRESHOLD_LOG2
-	 */
-	static const double FRACTION_RESCALING_THRESHOLD_INV;
 
 	/**
 	 * Natural logarithm of 2, used to convert from natural logarithms to base-2 logarithms.
@@ -223,13 +218,13 @@ private:
 	void check_consistency() {
 #if ED_ENABLE_ASSERTS_NORMALIZATION
 		assert((m_fraction == 0.0) || (!std::isfinite(m_fraction)) ||
-			   ((fabs(m_fraction) > FRACTION_RESCALING_THRESHOLD) &&
-				(fabs(m_fraction) < FRACTION_RESCALING_THRESHOLD_INV)));
+			   ((fabs(m_fraction) >= 1.0) &&
+				(fabs(m_fraction) < FRACTION_RESCALING_THRESHOLD)));
 #endif
 #if ED_ENABLE_ASSERTS_OVERFLOW
-		assert((m_exponent_raw - EXPONENT_EXCESS) % -FRACTION_RESCALING_THRESHOLD_LOG2 == 0);
 		assert((m_exponent_raw >= 0));
 		assert((m_exponent_raw <= EXPONENT_EXCESS + EXPONENT_MAX));
+		assert((m_exponent_raw - EXPONENT_EXCESS) % FRACTION_RESCALING_THRESHOLD_LOG2 == 0);
 #endif
 #if ED_ENABLE_NAN_WARNING
 		if (ED_UNLIKELY(!std::isfinite(m_fraction))) {
@@ -248,20 +243,10 @@ private:
 	 */
 	ED_ALWAYS_INLINE
 	void normalize() {
-#if 0
 		const double f = fabs(m_fraction);
-		if ((f <= FRACTION_RESCALING_THRESHOLD) ||
-            (f >= FRACTION_RESCALING_THRESHOLD_INV))
+		if ((f < 1.0) ||
+            (f >= FRACTION_RESCALING_THRESHOLD))
 			normalize_slowpath();
-#else
-        ieee754_double_t v;
-        v.as_double = m_fraction;
-        const uint32_t e = (v.as_fields.exponent
-                            - IEEE754_DOUBLE_EXP_EXCESS
-                            - FRACTION_RESCALING_THRESHOLD_LOG2 - 1);
-        if (e >= (-2*FRACTION_RESCALING_THRESHOLD_LOG2 - 1))
-            normalize_slowpath();
-#endif
 	}
 
 	void normalize_slowpath();
@@ -286,18 +271,7 @@ private:
 
 	static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
 
-	ED_ALWAYS_INLINE
-	double convert_to_double() const {
-		const int32_t e_sat = std::max(std::min(exponent(),
-												int64_t(IEEE754_DOUBLE_EXP_EXCESS + 1)),
-									   -int64_t(IEEE754_DOUBLE_EXP_EXCESS));
-
-		ieee754_double_t factor;
-		factor.as_uint64 = 0;
-		factor.as_fields.exponent = (e_sat + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
-
-		return fraction() * factor.as_double;
-	}
+	double convert_to_double() const;
 };
 
 ED_ALWAYS_INLINE

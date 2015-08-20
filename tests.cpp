@@ -72,25 +72,24 @@ BOOST_AUTO_TEST_CASE(infinities) {
 }
 
 BOOST_AUTO_TEST_CASE(normalization) {
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -255)).exponent(), 0);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,    0)).exponent(), 0);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  255)).exponent(), 0);
-    
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -256)).exponent(), -256);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  256)).exponent(),  256);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -511)).exponent(), -256);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  511)).exponent(),  256);
-    
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -512)).exponent(), -512);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  512)).exponent(),  512);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -767)).exponent(), -512);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  767)).exponent(),  512);
-    
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -768)).exponent(), -768);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  768)).exponent(),  768);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -1022)).exponent(), -768);
-    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  1023)).exponent(),  768);
-    
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,     0)).exponent(),   0);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,   255)).exponent(),   0);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,   256)).exponent(), 256);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,   511)).exponent(), 256);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,   512)).exponent(), 512);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,   767)).exponent(), 512);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,   768)).exponent(), 768);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  1023)).exponent(), 768);
+
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,    -1)).exponent(),  -256);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  -256)).exponent(),  -256);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  -257)).exponent(),  -512);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  -512)).exponent(),  -512);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  -513)).exponent(),  -768);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  -768)).exponent(),  -768);
+    BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0,  -769)).exponent(), -1024);
+	BOOST_CHECK_EQUAL(extended_double(std::ldexp(1.0, -1022)).exponent(), -1024);
+
     BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 0))),
                       1.0);
     BOOST_CHECK_EQUAL(extended_double_cast<double>(extended_double(std::ldexp(1.0, 255))),
