@@ -10,19 +10,19 @@
 #include <cassert>
 
 #define ED_ALWAYS_INLINE inline __attribute__((__always_inline__))
-#define ED_UNLIKELY(x) __builtin_expect((x), 0)
-#define ED_LIKELY(x) __builtin_expect((x), 1)
+#define ED_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#define ED_LIKELY(x) __builtin_expect(!!(x), 1)
 
 #ifndef ED_ENABLE_NAN_WARNING
-#define ED_ENABLE_NAN_WARNING 0
+#   define ED_ENABLE_NAN_WARNING 0
 #endif
 
 #ifndef ED_ENABLE_ASSERTS_NORMALIZATION
-#define ED_ENABLE_ASSERTS_NORMALIZATION 0
+#   define ED_ENABLE_ASSERTS_NORMALIZATION 0
 #endif
 
 #ifndef ED_ENABLE_ASSERTS_OVERFLOW
-#define ED_ENABLE_ASSERTS_OVERFLOW 0
+#   define ED_ENABLE_ASSERTS_OVERFLOW 0
 #endif
 
 #if ED_ENABLE_ASSERTS_NORMALIZATION
