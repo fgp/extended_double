@@ -25,6 +25,12 @@
 #define ED_ENABLE_ASSERTS_OVERFLOW 0
 #endif
 
+#if ED_ENABLE_ASSERTS_NORMALIZATION
+#   define ED_ASSERT_NORMALIZATION(x) assert(x)
+#else
+#   define ED_ASSERT_NORMALIZATION(x)
+#endif
+
 struct extended_double {
 	/**
 	 * Default constructor for extended_double, sets the value to 0.
