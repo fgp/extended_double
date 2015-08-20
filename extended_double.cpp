@@ -37,11 +37,25 @@ double extended_double::convert_to_double() const {
 }
 
 void extended_double::normalize_after_multiply_slowpath() {
-	/* Make fields of native double "m_fraction" available */
-	ieee754_double_t f;
-	f.as_double = m_fraction;
-	const uint32_t f_e = f.as_fields.exponent;
-
+    /* Make fields of native double "m_fraction" available */
+    ieee754_double_t f;
+    f.as_double = m_fraction;
+    const uint32_t f_e = f.as_fields.exponent;
+    
+    /* We only get here if the native exponent after a multiplication of two
+     * normalized numbers exeends FRACTION_RESCALING_THRESHOLD_LOG2. This,
+     * in particular, means that the fraction cannot be zero. In can be
+     * infinity, though, if one of the factors was infinity. The code below
+     * depends on this by
+     *   a) Not checking for underflows of m_exponent_raw, since we only
+     *      ever *increase it*. It must check for overflows, though!
+     *   b) Not checking whether the native exponent is -EXPONENT_EXCESS,
+     *      i.e. whether m_fraction is zero.
+     * It seems product to verify these assumptions with an assert, though.
+     */
+    ED_ASSERT_NORMALIZATION(m_exponent_raw > 0);
+    ED_ASSERT_NORMALIZATION(f_e >= IEEE754_DOUBLE_EXP_EXCESS);
+    
 	if (ED_LIKELY(f_e != IEEE754_DOUBLE_EXP_INF_RAW)) {
 		/* Fraction is neither +/- Infinity nor NaN */
 
@@ -79,6 +93,12 @@ void extended_double::normalize_slowpath() {
     f.as_double = m_fraction;
     const uint32_t f_e_raw = f.as_fields.exponent;
     
+    /* The following is the "full" version of normalize_after_multiply_slowpath().
+     * It only assumes that m_exponent_raw is not *already* overflowed. The code
+     * treast all de-normalized fractions (in the IEEE754 sense - not to be
+     * confused with de-normalized instances of extended_double) as zero.
+     */
+    
     if (ED_LIKELY(f_e_raw != IEEE754_DOUBLE_EXP_INF_RAW)) {
         /* Fraction is neither +/- Infinity nor NaN */
 
@@ -109,7 +129,7 @@ void extended_double::normalize_slowpath() {
         }
         else if (ED_LIKELY(e_p < EXPONENT_EXCESS + EXPONENT_MAX)) {
             /* Exponent still valid. Update exponent and fraction.
-             * If the fraction was zero (or underflowed), masking ensures that
+             * If the fraction was zero (or denormalized), masking ensures that
              * it is set to zero.
              */
             m_exponent_raw = e_p;
