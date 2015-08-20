@@ -92,7 +92,6 @@ void extended_double::normalize_slowpath() {
      * For sub-normals (incl. zeros) the exponent is set to the smallest value,
      * while for infinities it is set to the largest.
      */
-
 	const int32_t e_keep = (e + 1) % FRACTION_RESCALING_THRESHOLD_LOG2;
 	const int32_t e_val = int32_t(e) - int32_t(IEEE754_DOUBLE_EXP_EXCESS);
 	const int32_t e_delta = e_val - e_keep;
