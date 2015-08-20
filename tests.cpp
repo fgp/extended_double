@@ -232,18 +232,18 @@ BOOST_AUTO_TEST_CASE(basic)
 	BOOST_CHECK(v2 / v2 == v1);
 
 	const extended_double vexpm300 = std::exp(-300);
-	BOOST_CHECK(log(vexpm300) == -300);
-	BOOST_CHECK(log(vexpm300*vexpm300) == -600);
-	BOOST_CHECK(log(vexpm300*vexpm300*vexpm300) == -900);
-	BOOST_CHECK(log(vexpm300*vexpm300*vexpm300*vexpm300) == -1200);
-	BOOST_CHECK(vexpm300*vexpm300 < vexpm300);
-	BOOST_CHECK(vexpm300*vexpm300*vexpm300 < vexpm300*vexpm300);
-	BOOST_CHECK(vexpm300*vexpm300*vexpm300*vexpm300 < vexpm300*vexpm300*vexpm300);
-	BOOST_CHECK(vexpm300*vexpm300 + vexpm300 == vexpm300);
+	BOOST_CHECK_CLOSE(log(vexpm300), -300, 1e-13);
+	BOOST_CHECK_CLOSE(log(vexpm300*vexpm300), -600, 1e-13);
+	BOOST_CHECK_CLOSE(log(vexpm300*vexpm300*vexpm300), -900, 1e-13);
+	BOOST_CHECK_CLOSE(log(vexpm300*vexpm300*vexpm300*vexpm300), -1200, 1e-13);
+	BOOST_CHECK_LT(vexpm300*vexpm300, vexpm300);
+	BOOST_CHECK_LT(vexpm300*vexpm300*vexpm300, vexpm300*vexpm300);
+	BOOST_CHECK_LT(vexpm300*vexpm300*vexpm300*vexpm300, vexpm300*vexpm300*vexpm300);
+	BOOST_CHECK_EQUAL(vexpm300*vexpm300 + vexpm300, vexpm300);
 
-	BOOST_CHECK(vs*vs*vs*vs == vs*vs*vs*vs);
-	BOOST_CHECK(vs*vs*vs*vs != vs*vs*vs);
-	BOOST_CHECK(extended_double_cast<double>(vs*vs*vs*vs) == 0.0);
+	BOOST_CHECK_EQUAL(vs*vs*vs*vs, vs*vs*vs*vs);
+	BOOST_CHECK_NE(vs*vs*vs*vs, vs*vs*vs);
+	BOOST_CHECK_EQUAL(extended_double_cast<double>(vs*vs*vs*vs), 0.0);
 }
 
 BOOST_AUTO_TEST_SUITE_END()
