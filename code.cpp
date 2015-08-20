@@ -8,6 +8,10 @@
 
 #include "extended_double.h"
 
+extended_double multiply(extended_double a, extended_double b);
+
+extended_double add(extended_double a, extended_double b);
+
 extended_double multiply(extended_double a, extended_double b) {
     return a * b * a * b;
 }

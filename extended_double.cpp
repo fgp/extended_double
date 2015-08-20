@@ -7,8 +7,7 @@ const int32_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
 const double extended_double::FRACTION_RESCALING_THRESHOLD =
 std::ldexp(1.0, extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
 
-const double extended_double::LOG2 =
-log(2.0);
+const double extended_double::LOG2 = std::log(2.0);
 
 const uint32_t extended_double::IEEE754_DOUBLE_EXP_EXCESS;
 
@@ -110,7 +109,7 @@ void extended_double::normalize_slowpath() {
      * all non-finite values would convert NaN to +/- Inf!
      */
 	const uint32_t sp = uint32_t(v.as_fields.sign);
-	const uint32_t ep = (e_sub || e_inf) ? e : e_keep + IEEE754_DOUBLE_EXP_EXCESS;
+	const uint32_t ep = (e_sub || e_inf) ? e : uint32_t(e_keep + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
 	const uint64_t mp = e_sub ? 0 : v.as_fields.mantissa;
 	ieee754_double_t vp;
 	vp.as_uint64 = ((uint64_t(sp) << (IEEE754_DOUBLE_MAN_BITS + IEEE754_DOUBLE_EXP_BITS)) |

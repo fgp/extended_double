@@ -13,14 +13,6 @@
 #define ED_UNLIKELY(x) __builtin_expect((x), 0)
 #define ED_LIKELY(x) __builtin_expect((x), 1)
 
-#ifndef ED_ASSERT
-#ifdef NDEBUG
-#define ED_ASSERT(x)
-#else
-#define ED_ASSERT(x) assert(x)
-#endif
-#endif
-
 #ifndef ED_ENABLE_NAN_WARNING
 #define ED_ENABLE_NAN_WARNING 0
 #endif
@@ -125,6 +117,7 @@ struct extended_double {
 	}
 
 	friend extended_double fabs(const extended_double& v);
+    
 	friend double log(const extended_double& v);
 
 	friend bool operator<(extended_double a, extended_double b);
@@ -145,6 +138,11 @@ private:
 	 */
 	static const int64_t EXPONENT_EXCESS = 0x2000000000000000; // = 2^61 = -INT64_MIN/2
 
+    /**
+     * Maximum logical value of the exponent field.
+     *
+     * Maximum physical value is thus EXPONENT_MAX + EXPONENT_EXCESS.
+     */
 	static const int64_t EXPONENT_MAX = 0x2000000000000000; // = 2^61
 
 	/**
@@ -248,33 +246,31 @@ private:
 #endif
 	}
 
-	void normalize_after_multiply_slowpath();
-
-	/**
-	 * Normalizes the fractional part to lie within
-	 *   ( FRACTION_RESCALING_THRESHOLD , FRACTION_RESCALING_THRESHOLD_INV ),
-	 * and updates the exponent field accordingly.
-	 *
-	 * If the fractional value is sub-normal, the instance will afterwards
-	 * have numerical value 0.
-	 */
-	ED_ALWAYS_INLINE
-	void normalize() {
-		const double f = fabs(m_fraction);
-		if ((f < 1.0) ||
-            (f >= FRACTION_RESCALING_THRESHOLD))
-			normalize_slowpath();
-	}
-
+    /**
+     * Normalizes the fractional part to lie within
+     *   [ 1 , FRACTION_RESCALING_THRESHOLD ),
+     * and updates the exponent field accordingly.
+     *
+     * If the fractional value is sub-normal (inkl. zero), the instance will
+     * afterwards have numerical value 0, and the exponent will be set to
+     * -EXPONENT_EXCESS. If the fractional part is non-finite, the exponent
+     * will be set to EXPONENT_MAX.
+     */
 	void normalize_slowpath();
 
+    /**
+     * Faster version of normalize_slowpath() to be used multiplying the
+     * fractions and summing the exponents of two previously normalized values.
+     */
+    void normalize_after_multiply_slowpath();
+    
 	/**
 	 * Rescales the fractional part of argument with the smaller absolute value such
 	 * that both arguments afterwards have the same exponent.
 	 *
 	 * The argument with the smaller absolute value will afterwards be generally
 	 * NOT normalized, i.e. its m_fraction will lie outside of
-	 *   ( FRACTION_RESCALING_THRESHOLD , FRACTION_RESCALING_THRESHOLD_INV ).
+	 *   [ 1 , FRACTION_RESCALING_THRESHOLD ).
 	 * The smaller absolute value may become zero during the rescaling, in which
 	 * case the exponent will NOT necessarily be set to the smallest possible
 	 * value! Any public function that calls make_exponents_uniform must thus
@@ -358,12 +354,13 @@ extended_double fabs(const extended_double& v) {
 
 ED_ALWAYS_INLINE
 double log(const extended_double& v) {
-	return log(v.fraction()) + static_cast<double>(v.exponent())*extended_double::LOG2;
+	return std::log(v.fraction()) + (static_cast<double>(v.exponent())
+                                     * extended_double::LOG2);
 }
 
 ED_ALWAYS_INLINE
 double log2(const extended_double& v) {
-	return log2(v.fraction()) + static_cast<double>(v.exponent());
+	return std::log2(v.fraction()) + static_cast<double>(v.exponent());
 }
 
 template<typename T>
