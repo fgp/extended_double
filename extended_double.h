@@ -59,7 +59,7 @@ struct extended_double {
 	:m_fraction(v)
 	,m_exponent_raw(EXPONENT_EXCESS)
 	{
-        const double f = fabs(m_fraction);
+        const double f = std::fabs(m_fraction);
         if ((f < 1.0) ||
             (f >= FRACTION_RESCALING_THRESHOLD))
             normalize_slowpath();
@@ -97,7 +97,7 @@ struct extended_double {
 	extended_double& operator+=(extended_double v) {
 		make_exponents_uniform(*this, v);
 		m_fraction += v.m_fraction;
-        const double f = fabs(m_fraction);
+        const double f = std::fabs(m_fraction);
         if ((f < 1.0) ||
             (f >= FRACTION_RESCALING_THRESHOLD))
             normalize_slowpath();
@@ -151,7 +151,7 @@ struct extended_double {
 	extended_double& operator/=(const extended_double& v) {
 		m_fraction /= v.m_fraction;
 		m_exponent_raw -= v.exponent();
-        const double f = fabs(m_fraction);
+        const double f = std::fabs(m_fraction);
         if ((f < 1.0) ||
             (f >= FRACTION_RESCALING_THRESHOLD))
             normalize_slowpath();
