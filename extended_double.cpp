@@ -143,38 +143,19 @@ const extended_double::uniformity_factor extended_double::s_uniformity_factors[5
 void
 extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
 {
-	/* Compute the difference between the two exponents (d_exp), and determine by
-     * which power of two the fractional parts of a resp. b must be multiplied
-     * (a_shift and b_shift). Note that the shift for the value with the larger
-     * exponent is always zero. Also compute saturated versions of these shifts
-     * which fit into a native double's exponent field.
-     */
-	const int64_t d_exp = a.m_exponent_raw - b.m_exponent_raw;
-	const int64_t a_shift = std::min(d_exp, int64_t(0));
-	const int64_t b_shift = std::min(-d_exp, int64_t(0));
-	const int64_t a_shift_sat = std::max(a_shift, -int64_t(IEEE754_DOUBLE_EXP_EXCESS));
-	const int64_t b_shift_sat = std::max(b_shift, -int64_t(IEEE754_DOUBLE_EXP_EXCESS));
+    const int64_t e_delta = ((a.m_exponent_raw - b.m_exponent_raw)
+                             / FRACTION_RESCALING_THRESHOLD_LOG2);
+	if (e_delta != 0) {
+		const int32_t e_delta_sat = std::min(std::max(int64_t(-2), e_delta), int64_t(2));
+		const uniformity_factor& f = s_uniformity_factors[e_delta_sat + 2];
 
-	/* Compute 2^shift for a_shift and b_shift. Instead of using std::pow, the
-     * saturated versions of the shifts are simply written into the exponent of
-     * a native double. If one of the saturated values is IEEE754_DOUBLE_EXPONENT_EXCESS,
-     * the resulting native double is zero, since in IEEE floating-point numbers
-     * zero is encoded as minimal exponent plus zero mantissa.
-     */
-	ieee754_double_t a_factor, b_factor;
-	a_factor.as_uint64 = (uint64_t(a_shift_sat + int64_t(IEEE754_DOUBLE_EXP_EXCESS))
-						  << IEEE754_DOUBLE_MAN_BITS);
-	b_factor.as_uint64 = (uint64_t(b_shift_sat + int64_t(IEEE754_DOUBLE_EXP_EXCESS))
-						  << IEEE754_DOUBLE_MAN_BITS);
+		a.m_fraction *= f.a_fraction_f;
+		b.m_fraction *= f.b_fraction_f;
 
-	/* Multiple a and b by 2^shift_a resp. 2^shift_b, and adjust the exponents accordingly.
-     * Since either a_shift = a.exp - b.exp, or b_shift = b.exp - a.exp, the exponents
-     * of a and b will afterwards agree.
-     */
-	a.m_fraction *= a_factor.as_double;
-	b.m_fraction *= b_factor.as_double;
-	a.m_exponent_raw -= a_shift;
-	b.m_exponent_raw -= b_shift;
+		const int64_t e = ((a.m_exponent_raw & f.a_exponent_mask)
+				           | (b.m_exponent_raw & f.b_exponent_mask));
+		a.m_exponent_raw = b.m_exponent_raw = e;
+	}
 }
 
 void extended_double::exponent_overflowed() {
