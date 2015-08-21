@@ -132,6 +132,14 @@ void extended_double::normalize_slowpath() {
     }
 }
 
+const extended_double::uniformity_factor extended_double::s_uniformity_factors[5] = {
+	extended_double::uniformity_factor(0.0       , 1.0       ,  0, -1),
+	extended_double::uniformity_factor(exp2(-256), 1.0       ,  0, -1),
+	extended_double::uniformity_factor(1.0       , 1.0       , -1,  0),
+	extended_double::uniformity_factor(1.0       , exp2(-256), -1,  0),
+	extended_double::uniformity_factor(1.0       , 0.0       , -1,  0)
+};
+
 void
 extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
 {
