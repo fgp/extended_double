@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.0)
 cmake_policy(VERSION 3.0)
 
 # Tester
-add_executable(tests main.cpp tests.cpp extended_double.cpp)
+add_executable(tests main.cpp tests.cpp extended_double.cpp code.cpp)
 
 # Find boost
 if (EXISTS ${BOOST_FRAMEWORK})
