@@ -122,12 +122,12 @@ struct extended_double {
          * Since the constants were selected such that
          *   EXPONENT_MAX < 2*EXPONENT_MIN + EXPONENT_EXCESS, the two cases can
          * be distinguished, and we reduce all new raw exponents e_raw_p to
-         * zero if they are smaller than EXPONENT_MAX.
+         * zero if they are don't exceed EXPONENT_MAX.
          */
         ED_ASSERT_STATIC(EXPONENT_MAX < 2*EXPONENT_MIN + EXPONENT_EXCESS);
-        m_exponent_raw = ((e_raw_p <= EXPONENT_MAX) ? e_raw_p : 0);
+        m_exponent_raw = ((e_raw_p <= EXPONENT_MAX) ? 0 : e_raw_p);
         
-        /* XXX: Exponent underflow/overflow? */
+        /* XXX: Check for exponent overflow / underflow */
         
         /* During multiplication, the fraction can grew beyond the scaling
          * threshold, but it cannot drop below one if it was previously
@@ -321,10 +321,9 @@ private:
      * fractions and summing the exponents of two previously normalized values.
      */
     void normalize_after_multiply_slowpath();
-    
-    struct {
-    };
-    
+
+	void exponent_overflowed();
+
 	/**
 	 * Rescales the fractional part of argument with the smaller absolute value such
 	 * that both arguments afterwards have the same exponent.

@@ -73,7 +73,7 @@ void extended_double::normalize_after_multiply_slowpath() {
 	}
 	else {
 		/* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
-		m_exponent_raw = EXPONENT_EXCESS + EXPONENT_MAX;
+		m_exponent_raw = EXPONENT_EXCESS + EXPONENT_INF;
 	}
 }
 
@@ -111,7 +111,7 @@ void extended_double::normalize_slowpath() {
         const int64_t e_p = (m_exponent_raw + e_delta) & f_e_mask;
         
         if (ED_UNLIKELY(e_p < 0))
-            exponent_underflowed();
+            exponent_overflowed();
         else if (ED_LIKELY(e_p < EXPONENT_EXCESS + EXPONENT_MAX)) {
             /* Exponent still valid. Update exponent and fraction.
              * If the fraction was zero (or denormalized), masking ensures that
@@ -168,6 +168,9 @@ extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_do
 	b.m_exponent_raw -= b_shift;
 }
 
+void extended_double::exponent_overflowed() {
+	__builtin_trap();
+}
 
 std::ostream& operator<<(std::ostream& dst, const extended_double& v) {
 	if (v.m_exponent_raw == 0)
