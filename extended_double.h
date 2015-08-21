@@ -17,6 +17,12 @@
 #   define ED_ENABLE_NAN_WARNING 0
 #endif
 
+#ifndef ED_ENABLE_ASSERTS_STATIC
+#   define ED_ENABLE_ASSERTS_STATIC 1
+#   include <boost/static_assert.hpp>
+#   define ED_ASSERT_STATIC(x) BOOST_STATIC_ASSERT(x)
+#endif
+
 #ifndef ED_ENABLE_ASSERTS_NORMALIZATION
 #   define ED_ENABLE_ASSERTS_NORMALIZATION 0
 #endif
@@ -103,10 +109,36 @@ struct extended_double {
 
 	ED_ALWAYS_INLINE
 	extended_double& operator*=(const extended_double& v) {
+        /* Multiply fractions and compute new explicit raw exponent (e_raw_p) */
 		m_fraction *= v.m_fraction;
-		m_exponent_raw = std::max(m_exponent_raw + v.exponent(), int64_t(0));
-		if (fabs(m_fraction) > FRACTION_RESCALING_THRESHOLD)
+        const int64_t e_raw_p = m_exponent_raw + v.exponent();
+        
+        /* If we computed 0.0 * x, for |x| < Inf, e_raw_p will now be greater
+         * than 0 - more specifically, it will lie within the range
+         *   [ 0, EXPONENT_MAX ],
+         * when it should actually be zero. On the other hand, for the product
+         * of two finite non-zero values e_raw_p will lie within
+         *   [ 2*EXPONENT_MIN + EXPONENT_EXCESS , 2*EXPONENT_MAX + EXPONENT_EXCESS ].
+         * Since the constants were selected such that
+         *   EXPONENT_MAX < 2*EXPONENT_MIN + EXPONENT_EXCESS, the two cases can
+         * be distinguished, and we reduce all new raw exponents e_raw_p to
+         * zero if they are smaller than EXPONENT_MAX.
+         */
+        ED_ASSERT_STATIC(EXPONENT_MAX < 2*EXPONENT_MIN + EXPONENT_EXCESS);
+        m_exponent_raw = ((e_raw_p <= EXPONENT_MAX) ? e_raw_p : 0);
+        
+        /* XXX: Exponent underflow/overflow? */
+        
+        /* During multiplication, the fraction can grew beyond the scaling
+         * threshold, but it cannot drop below one if it was previously
+         * normalized (since then both factors where >= 1.0). To re-normalize,
+         * it thus suffices to test if the fraction's absolute value exceeds
+         * the threshold.
+         */
+		if (!(fabs(m_fraction) < FRACTION_RESCALING_THRESHOLD))
 			normalize_after_multiply_slowpath();
+        
+        /* Result should be normalized now */
 		check_consistency();
 		return *this;
 	}
@@ -151,11 +183,25 @@ private:
 	static const int64_t EXPONENT_EXCESS = 0x2000000000000000; // = 2^61 = -INT64_MIN/2
 
     /**
-     * Maximum logical value of the exponent field.
+     * Maximum logical non-zero value of the exponent field.
+     *
+     * Maximum physical value is thus EXPONENT_MIN + EXPONENT_EXCESS.
+     */
+    static const int64_t EXPONENT_MIN = -0x07ffffffffffffff; // = 2^59 - 1
+
+    /**
+     * Maximum logical non-infinite value of the exponent field.
      *
      * Maximum physical value is thus EXPONENT_MAX + EXPONENT_EXCESS.
      */
-	static const int64_t EXPONENT_MAX = 0x2000000000000000; // = 2^61
+    static const int64_t EXPONENT_MAX = 0x07ffffffffffffff; // = 2^59 - 1
+
+    /**
+     * Logical value for Infinity/NaN values of the exponent field.
+     *
+     * Physical value is thus EXPONENT_MAX + EXPONENT_EXCESS.
+     */
+    static const int64_t EXPONENT_INF = 0x2000000000000000; // = 2^60 - 1
 
 	/**
 	 * Base-2 Logarithm of rescaling threshold.
@@ -276,6 +322,9 @@ private:
      */
     void normalize_after_multiply_slowpath();
     
+    struct {
+    };
+    
 	/**
 	 * Rescales the fractional part of argument with the smaller absolute value such
 	 * that both arguments afterwards have the same exponent.
@@ -290,10 +339,26 @@ private:
 	 */
 	ED_ALWAYS_INLINE
 	static void make_exponents_uniform(extended_double& a, extended_double& b) {
+#if 0
+        const int32_t e_delta = ((a.m_exponent_raw - b.m_exponent_raw)
+                                 % FRACTION_RESCALING_THRESHOLD_LOG2);
+        switch (e_delta) {
+            case 0: return;
+            case -1:
+                ieee754_double_t v_a, v_b;
+                v_a.as_double = a.m_fraction;
+        }
+        
+        /* Make fields of native double "m_fraction" available */
+        ieee754_double_t v_a, v_b;
+        v_a.as_double = a.m_fraction;
+        v_b.as_double = b.m_fraction;
+#else
 		if (a.m_exponent_raw != b.m_exponent_raw)
 			make_exponents_uniform_slowpath(a, b);
+#endif
 	}
-
+    
 	static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
 
 	double convert_to_double() const;

@@ -54,32 +54,22 @@ void extended_double::normalize_after_multiply_slowpath() {
      * It seems product to verify these assumptions with an assert, though.
      */
     ED_ASSERT_NORMALIZATION(m_exponent_raw > 0);
-    ED_ASSERT_NORMALIZATION(f_e >= IEEE754_DOUBLE_EXP_EXCESS);
+    ED_ASSERT_NORMALIZATION(f_e >= (IEEE754_DOUBLE_EXP_EXCESS
+                                    + FRACTION_RESCALING_THRESHOLD_LOG2));
     
 	if (ED_LIKELY(f_e != IEEE754_DOUBLE_EXP_INF_RAW)) {
 		/* Fraction is neither +/- Infinity nor NaN */
 
-		/* If the fraction increased beyond the rescaling threshold, increase
-		 * the exponent and rescale the fraction. Note after multiplication,
-		 * the fraction is certainly less than FRACTION_RESCALING_THRESHOLD ^ 2,
-		 * so a single rescaling step always suffices here.
-		 */
-		const bool rescale = (f_e >= (FRACTION_RESCALING_THRESHOLD_LOG2
-									  + IEEE754_DOUBLE_EXP_EXCESS));
-		m_exponent_raw += rescale * FRACTION_RESCALING_THRESHOLD_LOG2;
+        /* Update exponent */
+		m_exponent_raw += FRACTION_RESCALING_THRESHOLD_LOG2;
 
 		if (ED_LIKELY(m_exponent_raw < EXPONENT_EXCESS + EXPONENT_MAX)) {
 			/* Exponent still valid. Update fraction to reduced exponent */
 			f.as_fields.exponent = f_e - FRACTION_RESCALING_THRESHOLD_LOG2;
 			m_fraction = f.as_double;
 		}
-		else {
-			/* Exponent overflowed. Set value to +/- Infinity */
-			m_exponent_raw = EXPONENT_EXCESS + EXPONENT_MAX;
-			f.as_fields.exponent = IEEE754_DOUBLE_EXP_INF_RAW;
-			f.as_fields.mantissa = 0;
-			m_fraction = f.as_double;
-		}
+		else
+            exponent_overflowed();
 	}
 	else {
 		/* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
@@ -120,13 +110,8 @@ void extended_double::normalize_slowpath() {
         const int32_t e_delta = f_e - f_e_n;
         const int64_t e_p = (m_exponent_raw + e_delta) & f_e_mask;
         
-        if (ED_UNLIKELY(e_p < 0)) {
-            /* Exponent underflowed. Set value to +/- Zero */
-            m_exponent_raw = 0;
-            f.as_fields.exponent = 0;
-            f.as_fields.mantissa = 0;
-            m_fraction = f.as_double;
-        }
+        if (ED_UNLIKELY(e_p < 0))
+            exponent_underflowed();
         else if (ED_LIKELY(e_p < EXPONENT_EXCESS + EXPONENT_MAX)) {
             /* Exponent still valid. Update exponent and fraction.
              * If the fraction was zero (or denormalized), masking ensures that
@@ -137,17 +122,12 @@ void extended_double::normalize_slowpath() {
             f.as_uint64 &= f_e_mask | 0x8000000000000000;
             m_fraction = f.as_double;
         }
-        else {
-            /* Exponent overflowed. Set value to +/- Infinity */
-            m_exponent_raw = EXPONENT_EXCESS + EXPONENT_MAX;
-            f.as_fields.exponent = IEEE754_DOUBLE_EXP_INF_RAW;
-            f.as_fields.mantissa = 0;
-            m_fraction = f.as_double;
-        }
+        else
+            exponent_overflowed();
     }
     else {
         /* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
-        m_exponent_raw = EXPONENT_EXCESS + EXPONENT_MAX;
+        m_exponent_raw = EXPONENT_EXCESS + EXPONENT_INF;
     }
 }
 
