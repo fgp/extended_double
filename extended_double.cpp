@@ -109,10 +109,11 @@ void extended_double::normalize_slowpath() {
         const int32_t f_e = int32_t(f_e_raw) - int32_t(IEEE754_DOUBLE_EXP_EXCESS);
         const int32_t e_delta = f_e - f_e_n;
         const int64_t e_p = (m_exponent_raw + e_delta) & f_e_mask;
-        
-        if (ED_UNLIKELY(e_p < 0))
-            exponent_overflowed();
-        else if (ED_LIKELY(e_p < EXPONENT_EXCESS + EXPONENT_MAX)) {
+
+		const int64_t e_p_test = e_p | (EXPONENT_EXCESS & ~f_e_mask);
+		if (ED_LIKELY((e_p_test >= (EXPONENT_EXCESS + EXPONENT_MIN))
+				      && (e_p_test <= (EXPONENT_EXCESS + EXPONENT_MAX))))
+		{
             /* Exponent still valid. Update exponent and fraction.
              * If the fraction was zero (or denormalized), masking ensures that
              * it is set to zero.
