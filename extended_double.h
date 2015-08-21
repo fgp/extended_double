@@ -18,9 +18,13 @@
 #endif
 
 #ifndef ED_ENABLE_ASSERTS_STATIC
-#   define ED_ENABLE_ASSERTS_STATIC 1
+#   define ED_ENABLE_ASSERTS_STATIC 0
+#endif
+#if ED_ENABLE_ASSERTS_STATIC
 #   include <boost/static_assert.hpp>
 #   define ED_ASSERT_STATIC(x) BOOST_STATIC_ASSERT(x)
+#else
+#	define ED_ASSERT_STATIC(x)
 #endif
 
 #ifndef ED_ENABLE_ASSERTS_NORMALIZATION
@@ -288,14 +292,15 @@ private:
 
 	void check_consistency() {
 #if ED_ENABLE_ASSERTS_NORMALIZATION
+		assert((m_exponent_raw == 0) || (m_exponent_raw == EXPONENT_INF + EXPONENT_EXCESS)
+			   || ((m_exponent_raw >= EXPONENT_MIN + EXPONENT_EXCESS)
+				   && (m_exponent_raw <= EXPONENT_MAX + EXPONENT_EXCESS)));
+		assert((m_exponent_raw - EXPONENT_EXCESS) % FRACTION_RESCALING_THRESHOLD_LOG2 == 0);
 		assert((m_fraction == 0.0) || (!std::isfinite(m_fraction)) ||
 			   ((fabs(m_fraction) >= 1.0) &&
 				(fabs(m_fraction) < FRACTION_RESCALING_THRESHOLD)));
-#endif
-#if ED_ENABLE_ASSERTS_OVERFLOW
-		assert((m_exponent_raw >= 0));
-		assert((m_exponent_raw <= EXPONENT_EXCESS + EXPONENT_MAX));
-		assert((m_exponent_raw - EXPONENT_EXCESS) % FRACTION_RESCALING_THRESHOLD_LOG2 == 0);
+		assert((m_exponent_raw == 0) == (m_fraction == 0.0));
+		assert((m_exponent_raw == EXPONENT_INF + EXPONENT_EXCESS) == !std::isfinite(m_fraction));
 #endif
 #if ED_ENABLE_NAN_WARNING
 		if (ED_UNLIKELY(!std::isfinite(m_fraction))) {
@@ -436,7 +441,7 @@ double log(const extended_double& v) {
 
 ED_ALWAYS_INLINE
 double log2(const extended_double& v) {
-	return std::log2(v.fraction()) + static_cast<double>(v.exponent());
+	return log2(v.fraction()) + static_cast<double>(v.exponent());
 }
 
 template<typename T>
