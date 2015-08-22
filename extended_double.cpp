@@ -145,17 +145,15 @@ extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_do
 {
     const int64_t e_delta = ((a.m_exponent_raw - b.m_exponent_raw)
                              / FRACTION_RESCALING_THRESHOLD_LOG2);
-	if (e_delta != 0) {
-		const int32_t e_delta_sat = std::min(std::max(int64_t(-2), e_delta), int64_t(2));
-		const uniformity_factor& f = s_uniformity_factors[e_delta_sat + 2];
+    const int32_t e_delta_sat = std::min(std::max(int64_t(-2), e_delta), int64_t(2));
+    const uniformity_factor& f = s_uniformity_factors[e_delta_sat + 2];
 
-		a.m_fraction *= f.a_fraction_f;
-		b.m_fraction *= f.b_fraction_f;
+    a.m_fraction *= f.a_fraction_f;
+    b.m_fraction *= f.b_fraction_f;
 
-		const int64_t e = ((a.m_exponent_raw & f.a_exponent_mask)
-				           | (b.m_exponent_raw & f.b_exponent_mask));
-		a.m_exponent_raw = b.m_exponent_raw = e;
-	}
+    const int64_t e = ((a.m_exponent_raw & f.a_exponent_mask)
+                       | (b.m_exponent_raw & f.b_exponent_mask));
+    a.m_exponent_raw = b.m_exponent_raw = e;
 }
 
 void extended_double::exponent_overflowed() {
