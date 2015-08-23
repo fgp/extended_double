@@ -162,7 +162,7 @@ void
 extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
 {
     const int64_t e_delta = ((a.m_exponent_raw - b.m_exponent_raw)
-                             / FRACTION_RESCALING_THRESHOLD_LOG2);
+                             >> FRACTION_RESCALING_THRESHOLD_LOG2_LOG2);
     const int32_t e_delta_sat = std::min(std::max(int64_t(-2), e_delta), int64_t(2));
     const uniformity_factor& f = s_uniformity_factors[e_delta_sat + 2];
 
