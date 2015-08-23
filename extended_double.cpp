@@ -19,6 +19,24 @@ const uint32_t extended_double::IEEE754_DOUBLE_EXP_BITS;
 
 const uint32_t extended_double::IEEE754_DOUBLE_MAN_BITS;
 
+extended_double extended_double::pow2(int64_t exponent) {
+    if (exponent < EXPONENT_MIN)
+        return extended_double(std::numeric_limits<double>::infinity(),
+                               EXPONENT_INF + EXPONENT_EXCESS);
+    if (exponent >= EXPONENT_MAX)
+        return extended_double(std::numeric_limits<double>::infinity(),
+                               EXPONENT_INF + EXPONENT_EXCESS);
+
+    const uint32_t e_nat = (uint64_t(exponent + EXPONENT_EXCESS)
+                            % FRACTION_RESCALING_THRESHOLD_LOG2);
+    const int64_t e = exponent - e_nat;
+    
+    ieee754_double_t f;
+    f.as_uint64 = 0;
+    f.as_fields.exponent = IEEE754_DOUBLE_EXP_EXCESS + e_nat;
+    return extended_double(f.as_double, e);
+}
+
 double extended_double::convert_to_double() const {
 	/* Make fields of native double "m_fraction" available */
 	ieee754_double_t v;

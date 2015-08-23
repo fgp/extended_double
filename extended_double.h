@@ -60,6 +60,11 @@ struct extended_double {
             normalize_slowpath();
 		check_consistency();
 	}
+    
+    /**
+     * Compute 2^i for integral i.
+     */
+    static extended_double pow2(int64_t exponent);
 
 	/**
 	 * Returns the fractional part of an extended_double.
@@ -206,6 +211,13 @@ private:
 	 * Base-2 Logarithm of rescaling threshold.
 	 */
 	static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 256;
+
+    /**
+     * Base-2 double Logarithm of rescaling threshold.
+     */
+    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2_LOG2 = 8;
+    ED_ASSERT_STATIC((int32_t(1) << FRACTION_RESCALING_THRESHOLD_LOG2_LOG2)
+                     == FRACTION_RESCALING_THRESHOLD_LOG2);
 
 	/**
 	 * Rescaling threshold, i.e. 2^FRACTION_RESCALING_THRESHOLD_LOG2
