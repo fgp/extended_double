@@ -35,6 +35,13 @@ namespace {
 BOOST_AUTO_TEST_CASE(defines) {
     BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_NORMALIZATION, 1);
     BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_STATIC, 1);
+    std::cerr << "Using SSE :";
+#if ED_ENABLE_SSE
+    std::cerr << "Yes";
+#else
+    std::cerr << "No";
+#endif
+    std::cerr << std::endl;
 }
 
 BOOST_AUTO_TEST_CASE(conversions) {
