@@ -2,7 +2,15 @@
 
 const int64_t extended_double::EXPONENT_EXCESS;
 
+const int64_t extended_double::EXPONENT_MIN;
+
+const int64_t extended_double::EXPONENT_MAX;
+
+const int64_t extended_double::EXPONENT_INF;
+
 const int32_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
+
+const int32_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2_LOG2;
 
 const double extended_double::FRACTION_RESCALING_THRESHOLD =
 std::ldexp(1.0, extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
