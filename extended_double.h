@@ -227,7 +227,7 @@ private:
 	/**
 	 * Natural logarithm of 2, used to convert from natural logarithms to base-2 logarithms.
 	 */
-	static const double LOG2;
+	static const double LN2;
 
 	/**
 	 * Excess used for exponents of IEEE754 double values.
@@ -441,7 +441,7 @@ extended_double fabs(const extended_double& v) {
 ED_ALWAYS_INLINE
 double log(const extended_double& v) {
 	return std::log(v.fraction()) + (static_cast<double>(v.exponent())
-                                     * extended_double::LOG2);
+                                     * extended_double::LN2);
 }
 
 ED_ALWAYS_INLINE

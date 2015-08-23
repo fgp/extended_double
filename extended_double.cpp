@@ -15,7 +15,7 @@ const int32_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2_LOG2;
 const double extended_double::FRACTION_RESCALING_THRESHOLD =
 std::ldexp(1.0, extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
 
-const double extended_double::LOG2 = std::log(2.0);
+const double extended_double::LN2 = std::log(2.0);
 
 const uint32_t extended_double::IEEE754_DOUBLE_EXP_EXCESS;
 
