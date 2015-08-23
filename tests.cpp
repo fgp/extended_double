@@ -200,13 +200,18 @@ BOOST_AUTO_TEST_CASE(infinities) {
 }
 
 BOOST_AUTO_TEST_CASE(arithmetic) {
-    const double fractions[] = { -firstbefore(2.0), -1.0 - 1.0/M_PI, -1.0,
-                                 nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0) };
+    const int64_t exponents[] = { -0x100000000, -1500, 0, 1500, 0x100000000 };
+    const double fractions[] = {
+        -firstbefore(2.0), -1.0 - 1.0/M_PI, -1.0,
+        nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0)
+    };
     
-    for(int e1_1 = -1500; e1_1 <= 1500; e1_1 += 1500) {
-        for(int e2_1 = -1500; e2_1 <= 1500; e2_1 += 1500) {
-            for(int e1_2 = 0; e1_2 <= 300; e1_2 += 7) {
-                for(int e2_2 = 0; e2_2 <= 300; e2_2 += 7) {
+    for(int e1_i = 0; e1_i <= sizeof(exponents) / sizeof(int64_t); ++e1_i) {
+        for(int e2_i = 0; e2_i <= sizeof(exponents) / sizeof(int64_t); ++e2_i) {
+            const int64_t e1_1 = exponents[e1_i];
+            const int64_t e2_1 = exponents[e1_i];
+            for(int e1_2 = 0; e1_2 <= 260; e1_2 += 7) {
+                for(int e2_2 = 0; e2_2 <= 260; e2_2 += 7) {
                     const int e1 = e1_1 + e1_2;
                     const int e2 = e2_1 + e2_2;
                     for(int f1 = 0; f1 < sizeof(fractions) / sizeof(double); ++f1) {
