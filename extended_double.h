@@ -130,8 +130,7 @@ struct extended_double {
          */
         ED_ASSERT_STATIC(EXPONENT_MAX < 2*EXPONENT_MIN + EXPONENT_EXCESS);
         m_exponent_raw = ((e_raw_p <= EXPONENT_MAX) ? 0 : e_raw_p);
-        
-        /* XXX: Check for exponent overflow / underflow */
+        check_exponent_range<true, true>();
         
         /* During multiplication, the fraction can grew beyond the scaling
          * threshold, but it cannot drop below one if it was previously
@@ -297,6 +296,11 @@ private:
 		check_consistency();
 	}
 
+    template<bool UF, bool OF>
+    void check_exponent_range() const {
+        /* XXX: Exponent isn't checked for overflow/underflow */
+    }
+    
 	void check_consistency() {
 #if ED_ENABLE_ASSERTS_NORMALIZATION
 		assert((m_exponent_raw == 0) || (m_exponent_raw == EXPONENT_INF + EXPONENT_EXCESS)

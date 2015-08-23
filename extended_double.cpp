@@ -88,14 +88,11 @@ void extended_double::normalize_after_multiply_slowpath() {
 
         /* Update exponent */
 		m_exponent_raw += FRACTION_RESCALING_THRESHOLD_LOG2;
-
-		if (ED_LIKELY(m_exponent_raw < EXPONENT_EXCESS + EXPONENT_MAX)) {
-			/* Exponent still valid. Update fraction to reduced exponent */
-			f.as_fields.exponent = f_e - FRACTION_RESCALING_THRESHOLD_LOG2;
-			m_fraction = f.as_double;
-		}
-		else
-            exponent_overflowed();
+        check_exponent_range<false,true>();
+        
+        /* Update fraction to reduced exponent */
+        f.as_fields.exponent = f_e - FRACTION_RESCALING_THRESHOLD_LOG2;
+        m_fraction = f.as_double;
 	}
 	else {
 		/* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
@@ -136,21 +133,15 @@ void extended_double::normalize_slowpath() {
         const int32_t e_delta = f_e - f_e_n;
         const int64_t e_p = (m_exponent_raw + e_delta) & f_e_mask;
 
-		const int64_t e_p_test = e_p | (EXPONENT_EXCESS & ~f_e_mask);
-		if (ED_LIKELY((e_p_test >= (EXPONENT_EXCESS + EXPONENT_MIN))
-				      && (e_p_test <= (EXPONENT_EXCESS + EXPONENT_MAX))))
-		{
-            /* Exponent still valid. Update exponent and fraction.
-             * If the fraction was zero (or denormalized), masking ensures that
-             * it is set to zero.
-             */
-            m_exponent_raw = e_p;
-            f.as_fields.exponent = f_e_n + int32_t(IEEE754_DOUBLE_EXP_EXCESS);
-            f.as_uint64 &= f_e_mask | 0x8000000000000000;
-            m_fraction = f.as_double;
-        }
-        else
-            exponent_overflowed();
+        /* Update exponent and fraction.
+         * If the fraction was zero (or denormalized), masking ensures that
+         * it is set to zero.
+         */
+        m_exponent_raw = e_p;
+        check_exponent_range<true,true>();
+        f.as_fields.exponent = f_e_n + int32_t(IEEE754_DOUBLE_EXP_EXCESS);
+        f.as_uint64 &= f_e_mask | 0x8000000000000000;
+        m_fraction = f.as_double;
     }
     else {
         /* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
