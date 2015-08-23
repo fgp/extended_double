@@ -91,7 +91,8 @@ void extended_double::normalize_after_multiply_slowpath() {
         check_exponent_range<false,true>();
         
         /* Update fraction to reduced exponent */
-        f.as_fields.exponent = f_e - FRACTION_RESCALING_THRESHOLD_LOG2;
+        f.as_uint64 -= (int64_t(FRACTION_RESCALING_THRESHOLD_LOG2)
+                        << IEEE754_DOUBLE_MAN_BITS);
         m_fraction = f.as_double;
 	}
 	else {
