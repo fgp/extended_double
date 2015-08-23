@@ -191,21 +191,21 @@ private:
      *
      * Maximum physical value is thus EXPONENT_MIN + EXPONENT_EXCESS.
      */
-    static const int64_t EXPONENT_MIN = -0x07ffffffffffffff; // = 2^59 - 1
+    static const int64_t EXPONENT_MIN = -0x0400000000000000; // = 2^58
 
     /**
      * Maximum logical non-infinite value of the exponent field.
      *
      * Maximum physical value is thus EXPONENT_MAX + EXPONENT_EXCESS.
      */
-    static const int64_t EXPONENT_MAX = 0x07ffffffffffffff; // = 2^59 - 1
+    static const int64_t EXPONENT_MAX = 0x0400000000000000; // = 2^58
 
     /**
      * Logical value for Infinity/NaN values of the exponent field.
      *
      * Physical value is thus EXPONENT_MAX + EXPONENT_EXCESS.
      */
-    static const int64_t EXPONENT_INF = 0x2000000000000000; // = 2^60 - 1
+    static const int64_t EXPONENT_INF = 0x2000000000000000; // = 2^61
 
 	/**
 	 * Base-2 Logarithm of rescaling threshold.
