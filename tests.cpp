@@ -32,6 +32,11 @@ namespace {
     }
 }
 
+BOOST_AUTO_TEST_CASE(defines) {
+    BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_NORMALIZATION, 1);
+    BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_STATIC, 1);
+}
+
 BOOST_AUTO_TEST_CASE(conversions) {
     const double fractions[] = { -firstbefore(2.0), -1.9, -1.0 - 1.0/M_PI,
                                  -1.0, nextafter(1.0), 1.1, 1.0 + 1.0/M_PI, 1.9,
