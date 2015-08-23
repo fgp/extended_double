@@ -232,6 +232,19 @@ BOOST_AUTO_TEST_CASE(arithmetic) {
                                 BOOST_CHECK_EQUAL(log2(s_q) + s.exponent(),
                                                   std::max(e1, e2));
                             }
+                            
+                            /* Check subtraction */
+                            const extended_double d = v1 - v2;
+                            const double d1 = fractions[f1] * exp2(std::min(e1 - e2, 0));
+                            const double d2 = fractions[f2] * exp2(std::min(e2 - e1, 0));
+                            if ((d1 - d2) == 0.0)
+                                BOOST_CHECK_EQUAL(d, 0.0);
+                            else {
+                                const double d_q = d.fraction() / (d1 - d2);
+                                BOOST_CHECK_EQUAL(std::ceil(log2(d_q)), log2(d_q));
+                                BOOST_CHECK_EQUAL(log2(d_q) + d.exponent(),
+                                                  std::max(e1, e2));
+                            }
                         }
                     }
                 }
