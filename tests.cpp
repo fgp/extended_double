@@ -80,6 +80,7 @@ BOOST_AUTO_TEST_CASE(zeros) {
             BOOST_CHECK_EQUAL(v / fractions[f], extended_double::pow2(e));
             
             BOOST_CHECK_EQUAL(v * v0, v0);
+            BOOST_CHECK_EQUAL(v / v0, fractions[f] * std::numeric_limits<double>::infinity());
             BOOST_CHECK_EQUAL(v + v0, v);
             BOOST_CHECK_EQUAL(v - v0, v);
             
