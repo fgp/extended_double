@@ -44,6 +44,12 @@ BOOST_AUTO_TEST_CASE(defines) {
     std::cerr << std::endl;
 }
 
+#ifdef NDEBUG
+BOOST_AUTO_TEST_CASE(ndebug_not_set) {
+    BOOST_CHECK(false);
+}
+#endif
+
 BOOST_AUTO_TEST_CASE(conversions) {
     const double fractions[] = { -firstbefore(2.0), -1.9, -1.0 - 1.0/M_PI,
                                  -1.0, nextafter(1.0), 1.1, 1.0 + 1.0/M_PI, 1.9,
