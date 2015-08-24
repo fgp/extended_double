@@ -1,12 +1,6 @@
 #include "extended_double.h"
 
-const int64_t extended_double::EXPONENT_EXCESS;
-
-const int64_t extended_double::EXPONENT_MIN;
-
-const int64_t extended_double::EXPONENT_MAX;
-
-const int64_t extended_double::EXPONENT_INF;
+const uint64_t extended_double::EXPONENT_MASK;
 
 const int32_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
 
@@ -14,6 +8,9 @@ const int32_t extended_double::FRACTION_RESCALING_THRESHOLD_LOG2_LOG2;
 
 const double extended_double::FRACTION_RESCALING_THRESHOLD =
 std::ldexp(1.0, extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
+
+const double extended_double::FRACTION_RESCALING_THRESHOLD_INV =
+std::ldexp(1.0, -extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
 
 const double extended_double::LN2 = std::log(2.0);
 
@@ -27,126 +24,66 @@ const uint32_t extended_double::IEEE754_DOUBLE_EXP_BITS;
 
 const uint32_t extended_double::IEEE754_DOUBLE_MAN_BITS;
 
-extended_double extended_double::pow2(int64_t exponent) {
-    if (exponent < EXPONENT_MIN)
-        return extended_double(std::numeric_limits<double>::infinity(),
-                               EXPONENT_INF + EXPONENT_EXCESS);
-    if (exponent >= EXPONENT_MAX)
-        return extended_double(std::numeric_limits<double>::infinity(),
-                               EXPONENT_INF + EXPONENT_EXCESS);
+/*** XXX: For debugging only */
+double extended_double::get_exponent() {
+    return exponent();
+}
 
-    const uint32_t e_nat = (uint64_t(exponent + EXPONENT_EXCESS)
-                            % FRACTION_RESCALING_THRESHOLD_LOG2);
-    const int64_t e = exponent - e_nat;
-    
+extended_double extended_double::pow2(int64_t exponent) {
+    const int32_t e_mod = (exponent % FRACTION_RESCALING_THRESHOLD_LOG2);
+    const int32_t e_nat = (e_mod >= 0) ? e_mod : e_mod + FRACTION_RESCALING_THRESHOLD_LOG2;
+
     ieee754_double_t f;
     f.as_uint64 = 0;
     f.as_fields.exponent = IEEE754_DOUBLE_EXP_EXCESS + e_nat;
-    return extended_double(f.as_double, e);
+    return extended_double(f.as_double, exponent - e_nat);
 }
 
 double extended_double::convert_to_double() const {
-	/* Make fields of native double "m_fraction" available */
-	ieee754_double_t v;
-	v.as_double = m_fraction;
-
-	/* Add exponent to native exponent, and clamp to valid IEEE754 double range */
-	const int32_t e_sat = int32_t(std::max(std::min(exponent()
-													+ int64_t(v.as_fields.exponent)
-													- int64_t(IEEE754_DOUBLE_EXP_EXCESS),
-													int64_t(IEEE754_DOUBLE_EXP_EXCESS + 1)),
-										   -int64_t(IEEE754_DOUBLE_EXP_EXCESS)));
-
-	/* Update native's exponent and return */
-	v.as_fields.exponent = uint32_t(e_sat + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
-	return v.as_double;
+    ieee754_double_t r;
+    r.as_double = m_fraction;
+    const int32_t f_e = int32_t(r.as_fields.exponent) -int32_t(IEEE754_DOUBLE_EXP_EXCESS);
+    const double f_ep = std::max(std::min(exponent() + double(f_e),
+                                          double(IEEE754_DOUBLE_EXP_EXCESS+1)),
+                                 double(-int32_t(IEEE754_DOUBLE_EXP_EXCESS)));
+    r.as_fields.exponent = uint32_t(int32_t(f_ep) + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
+    return r.as_double;
 }
 
-void extended_double::normalize_after_multiply_slowpath() {
-    /* Make fields of native double "m_fraction" available */
-    ieee754_double_t f;
-    f.as_double = m_fraction;
-    const uint32_t f_e = f.as_fields.exponent;
-    
-    /* We only get here if the native exponent after a multiplication of two
-     * normalized numbers exeends FRACTION_RESCALING_THRESHOLD_LOG2. This,
-     * in particular, means that the fraction cannot be zero. In can be
-     * infinity, though, if one of the factors was infinity. The code below
-     * depends on this by
-     *   a) Not checking for underflows of m_exponent_raw, since we only
-     *      ever *increase it*. It must check for overflows, though!
-     *   b) Not checking whether the native exponent is -EXPONENT_EXCESS,
-     *      i.e. whether m_fraction is zero.
-     * It seems product to verify these assumptions with an assert, though.
-     */
-    ED_ASSERT_NORMALIZATION(m_exponent_raw > 0);
-    ED_ASSERT_NORMALIZATION(f_e >= (IEEE754_DOUBLE_EXP_EXCESS
-                                    + FRACTION_RESCALING_THRESHOLD_LOG2));
-    
-	if (ED_LIKELY(f_e != IEEE754_DOUBLE_EXP_INF_RAW)) {
-		/* Fraction is neither +/- Infinity nor NaN */
-
-        /* Update exponent */
-		m_exponent_raw += FRACTION_RESCALING_THRESHOLD_LOG2;
-        check_exponent_range<false,true>();
-        
-        /* Update fraction to reduced exponent */
-        f.as_uint64 -= (int64_t(FRACTION_RESCALING_THRESHOLD_LOG2)
-                        << IEEE754_DOUBLE_MAN_BITS);
-        m_fraction = f.as_double;
-	}
-	else {
-		/* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
-		m_exponent_raw = EXPONENT_EXCESS + EXPONENT_INF;
-	}
-}
 
 void extended_double::normalize_slowpath() {
     /* Make fields of native double "m_fraction" available */
     ieee754_double_t f;
     f.as_double = m_fraction;
     const uint32_t f_e_raw = f.as_fields.exponent;
-    
-    /* The following is the "full" version of normalize_after_multiply_slowpath().
-     * It only assumes that m_exponent_raw is not *already* overflowed. The code
-     * treast all de-normalized fractions (in the IEEE754 sense - not to be
-     * confused with de-normalized instances of extended_double) as zero.
-     */
-    
-    if (ED_LIKELY(f_e_raw != IEEE754_DOUBLE_EXP_INF_RAW)) {
-        /* Fraction is neither +/- Infinity nor NaN */
 
-        /* Compute mask which is all-zero if m_fraction is zero, otherwise all-one */
-        const int64_t f_e_mask = -int32_t(f_e_raw > 0);
+    if (f_e_raw == 0) {
+        /* Fraction is zero (or denormalized) */
+        *this = extended_double();
+    }
+    else if (f_e_raw != IEEE754_DOUBLE_EXP_INF_RAW) {
+        /* Fraction is non-zero and finite */
 
         /* Compute native exponent mod FRACTION_RESCALING_THRESHOLD_LOG2.
          * Result lies within [ 0, FRACTION_RESCALING_THRESHOLD_LOG2 ). This
-         * will become the new native exponent (after zero masking)
+         * will become the new native exponent
          */
         const int32_t f_e_n = (f_e_raw + 1) % FRACTION_RESCALING_THRESHOLD_LOG2;
-        
-        /* Compute updated explicit exponent. If the fraction is zero, the explicit
-         * exponent becomes zero as well (via masking). Otherwise, simply add
-         * the delta between the original (f_e) and the normalized (f_e_n)
-         * native exponent.
+
+        /* Compute difference e_delta between original and normalized native
+         * exponent.
          */
         const int32_t f_e = int32_t(f_e_raw) - int32_t(IEEE754_DOUBLE_EXP_EXCESS);
         const int32_t e_delta = f_e - f_e_n;
-        const int64_t e_p = (m_exponent_raw + e_delta) & f_e_mask;
 
-        /* Update exponent and fraction.
-         * If the fraction was zero (or denormalized), masking ensures that
-         * it is set to zero.
-         */
-        m_exponent_raw = e_p;
-        check_exponent_range<true,true>();
-        f.as_fields.exponent = f_e_n + int32_t(IEEE754_DOUBLE_EXP_EXCESS);
-        f.as_uint64 &= f_e_mask | 0x8000000000000000;
+        /* Update exponent and fraction. */
+        set_exponent(exponent() + double(e_delta));
+        f.as_fields.exponent = uint32_t(f_e_n + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
         m_fraction = f.as_double;
     }
     else {
         /* Fraction has value +/- Infinity or NaN. Adjust exponent accordingly */
-        m_exponent_raw = EXPONENT_EXCESS + EXPONENT_INF;
+        set_exponent(std::fabs(m_fraction));
     }
 }
 
@@ -161,21 +98,24 @@ const extended_double::uniformity_factor extended_double::s_uniformity_factors[5
 void
 extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
 {
-    const int64_t e_delta = ((a.m_exponent_raw - b.m_exponent_raw)
-                             >> FRACTION_RESCALING_THRESHOLD_LOG2_LOG2);
-    const int32_t e_delta_sat = std::min(std::max(int64_t(-2), e_delta), int64_t(2));
-    const uniformity_factor& f = s_uniformity_factors[e_delta_sat + 2];
+    const double e_delta = a.exponent() - b.exponent();
+    const double THRESHOLD = 2*FRACTION_RESCALING_THRESHOLD_LOG2;
+    const int32_t e_delta_sat = int32_t(std::min(std::max(-THRESHOLD, e_delta),
+                                                 THRESHOLD));
+    const int32_t e_delta_idx = (e_delta_sat >> FRACTION_RESCALING_THRESHOLD_LOG2_LOG2);
+    ED_ASSERT_NORMALIZATION(e_delta_idx >= -2);
+    ED_ASSERT_NORMALIZATION(e_delta_idx <= 2);
+    const uniformity_factor& f = s_uniformity_factors[e_delta_idx + 2];
 
     a.m_fraction *= f.a_fraction_f;
     b.m_fraction *= f.b_fraction_f;
 
-    const int64_t e = ((a.m_exponent_raw & f.a_exponent_mask)
-                       | (b.m_exponent_raw & f.b_exponent_mask));
-    a.m_exponent_raw = b.m_exponent_raw = e;
-}
-
-void extended_double::exponent_overflowed() {
-	__builtin_trap();
+    ieee754_double_t e_a, e_b, e;
+    e_a.as_double = a.m_exponent_raw;
+    e_b.as_double = b.m_exponent_raw;
+    e.as_uint64 = ((e_a.as_uint64 & f.a_exponent_mask)
+                   | (e_b.as_uint64 & f.b_exponent_mask));
+    a.m_exponent_raw = b.m_exponent_raw = e.as_double;
 }
 
 std::ostream& operator<<(std::ostream& dst, const extended_double& v) {
@@ -184,7 +124,7 @@ std::ostream& operator<<(std::ostream& dst, const extended_double& v) {
 	else {
 		int e = 0;
 		const double f = std::frexp(v.fraction(), &e);
-		dst << f << "*2^" << (v.exponent() + static_cast<int64_t>(e));
+		dst << f << "*2^" << (v.exponent() + double(e));
 	}
     
     return dst;

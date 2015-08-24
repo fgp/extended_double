@@ -50,7 +50,7 @@ BOOST_AUTO_TEST_CASE(conversions) {
             
             const extended_double v = d;
             BOOST_CHECK_EQUAL(extended_double_cast<double>(v), d);
-            BOOST_CHECK_EQUAL(v.exponent() % 256, 0);
+            BOOST_CHECK_EQUAL(int64_t(v.exponent()) % 256, 0);
             
             int v_f_e = 0;
             const double v_fp = std::frexp(v.fraction(), &v_f_e);
