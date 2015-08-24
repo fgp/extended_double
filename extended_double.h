@@ -51,6 +51,28 @@
 #endif
 
 struct extended_double {
+    /**
+     * Base-2 Logarithm of rescaling threshold.
+     */
+    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 256;
+    
+    /**
+     * Base-2 double Logarithm of rescaling threshold.
+     */
+    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2_LOG2 = 8;
+    ED_ASSERT_STATIC((int32_t(1) << FRACTION_RESCALING_THRESHOLD_LOG2_LOG2)
+                     == FRACTION_RESCALING_THRESHOLD_LOG2);
+    
+    /**
+     * Rescaling threshold, i.e. 2^FRACTION_RESCALING_THRESHOLD_LOG2
+     */
+    static const double FRACTION_RESCALING_THRESHOLD;
+    
+    /**
+     * Rescaling threshold, i.e. 2^-FRACTION_RESCALING_THRESHOLD_LOG2
+     */
+    static const double FRACTION_RESCALING_THRESHOLD_INV;
+    
 	/**
 	 * Default constructor for extended_double, sets the value to 0.
 	 */
@@ -216,28 +238,6 @@ private:
 	 * Mask exponent is XORed with when stored in m_exponent_raw.
 	 */
 	static const uint64_t EXPONENT_MASK = 0xfff0000000000000;
-
-	/**
-	 * Base-2 Logarithm of rescaling threshold.
-	 */
-	static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 256;
-
-    /**
-     * Base-2 double Logarithm of rescaling threshold.
-     */
-    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2_LOG2 = 8;
-    ED_ASSERT_STATIC((int32_t(1) << FRACTION_RESCALING_THRESHOLD_LOG2_LOG2)
-                     == FRACTION_RESCALING_THRESHOLD_LOG2);
-
-	/**
-	 * Rescaling threshold, i.e. 2^FRACTION_RESCALING_THRESHOLD_LOG2
-	 */
-	static const double FRACTION_RESCALING_THRESHOLD;
-
-	/**
- 	 * Rescaling threshold, i.e. 2^-FRACTION_RESCALING_THRESHOLD_LOG2
- 	 */
-	static const double FRACTION_RESCALING_THRESHOLD_INV;
 
 	/**
 	 * Natural logarithm of 2, used to convert from natural logarithms to base-2 logarithms.

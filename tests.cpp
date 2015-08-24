@@ -57,7 +57,9 @@ BOOST_AUTO_TEST_CASE(conversions) {
             
             const extended_double v = d;
             BOOST_CHECK_EQUAL(extended_double_cast<double>(v), d);
-            BOOST_CHECK_EQUAL(int64_t(v.exponent()) % 256, 0);
+            BOOST_CHECK_EQUAL(int64_t(v.exponent())
+                              % extended_double::FRACTION_RESCALING_THRESHOLD_LOG2,
+                              0);
             
             int v_f_e = 0;
             const double v_fp = std::frexp(v.fraction(), &v_f_e);
@@ -66,7 +68,7 @@ BOOST_AUTO_TEST_CASE(conversions) {
             v_f_e -= 1;
             
             BOOST_CHECK_GE(v_f_e, 0);
-            BOOST_CHECK_LT(v_f_e, 256);
+            BOOST_CHECK_LT(v_f_e, extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
             BOOST_CHECK_EQUAL(v.exponent() + v_f_e, e);
         }
     }
@@ -217,8 +219,8 @@ BOOST_AUTO_TEST_CASE(arithmetic) {
         for(int e2_i = 0; e2_i <= sizeof(exponents) / sizeof(int64_t); ++e2_i) {
             const int64_t e1_1 = exponents[e1_i];
             const int64_t e2_1 = exponents[e1_i];
-            for(int e1_2 = 0; e1_2 <= 260; e1_2 += 7) {
-                for(int e2_2 = 0; e2_2 <= 260; e2_2 += 7) {
+            for(int e1_2 = 0; e1_2 <= 513; e1_2 += 57) {
+                for(int e2_2 = 0; e2_2 <= 513; e2_2 += 57) {
                     const int e1 = e1_1 + e1_2;
                     const int e2 = e2_1 + e2_2;
                     for(int f1 = 0; f1 < sizeof(fractions) / sizeof(double); ++f1) {

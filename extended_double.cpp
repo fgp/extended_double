@@ -88,11 +88,13 @@ void extended_double::normalize_slowpath() {
 }
 
 #if !ED_ENABLE_SSE
+static const double TH = extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
+
 const extended_double::uniformity_factor extended_double::s_uniformity_factors[5] = {
 	extended_double::uniformity_factor(0.0       , 1.0       ,  0, -1),
-	extended_double::uniformity_factor(exp2(-256), 1.0       ,  0, -1),
+	extended_double::uniformity_factor(exp2(-TH) , 1.0       ,  0, -1),
 	extended_double::uniformity_factor(1.0       , 1.0       , -1,  0),
-	extended_double::uniformity_factor(1.0       , exp2(-256), -1,  0),
+	extended_double::uniformity_factor(1.0       , exp2(-TH) , -1,  0),
 	extended_double::uniformity_factor(1.0       , 0.0       , -1,  0)
 };
 #endif
