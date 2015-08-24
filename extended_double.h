@@ -31,6 +31,9 @@
 #   define ED_ENABLE_ASSERTS_NORMALIZATION 0
 #endif
 #if ED_ENABLE_ASSERTS_NORMALIZATION
+#   ifdef NDEBUG
+#       warning NDEBUG overrides ED_ENABLE_ASSERTS_NORMALIZATION
+#   endif
 #   define ED_ASSERT_NORMALIZATION(x) assert(x)
 #else
 #   define ED_ASSERT_NORMALIZATION(x)
@@ -388,6 +391,7 @@ private:
 
 	static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
 
+#if !ED_ENABLE_SSE
 	struct uniformity_factor {
 		uniformity_factor(double _a_fraction_f, double _b_fraction_f,
 		                   int64_t _a_exponent_mask, int64_t _b_exponent_mask)
@@ -401,6 +405,7 @@ private:
 		int64_t a_exponent_mask, b_exponent_mask;
 	};
 	static const uniformity_factor s_uniformity_factors[5];
+#endif
     
 	double convert_to_double() const;
 };

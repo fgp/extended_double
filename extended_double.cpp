@@ -87,6 +87,7 @@ void extended_double::normalize_slowpath() {
     }
 }
 
+#if !ED_ENABLE_SSE
 const extended_double::uniformity_factor extended_double::s_uniformity_factors[5] = {
 	extended_double::uniformity_factor(0.0       , 1.0       ,  0, -1),
 	extended_double::uniformity_factor(exp2(-256), 1.0       ,  0, -1),
