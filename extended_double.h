@@ -133,17 +133,19 @@ struct extended_double {
 	}
 
 	ED_ALWAYS_INLINE
-	extended_double& operator+=(extended_double v) {
-		make_exponents_uniform(*this, v);
-		m_fraction += v.m_fraction;
-        const double f = std::fabs(m_fraction);
+	extended_double& operator+=(const extended_double& v) {
+        if (are_exponents_uniform(*this, v))
+            set_fraction(fraction() + v.fraction());
+        else
+            add_slowpath(v);
+        const double f = std::fabs(fraction());
         if ((f < 1.0) ||
             (f >= FRACTION_RESCALING_THRESHOLD))
             normalize_slowpath();
-		check_consistency();
-		return *this;
-	}
-
+        check_consistency();
+        return *this;
+    }
+    
 	ED_ALWAYS_INLINE
 	extended_double& operator-=(extended_double v) {
         *this += -v;
@@ -331,8 +333,34 @@ private:
 		m_fraction = fraction;
 	}
 
-	/* XXX: For debugging only */
-	double get_exponent();
+#ifndef NDEBUG
+    double get_exponent();
+#endif
+    
+    ED_ALWAYS_INLINE
+    static bool
+    are_exponents_uniform(const extended_double& a, const extended_double& b) {
+#if ED_ENABLE_SSE
+        const __m128d a_e = _mm_set_sd(a.m_exponent_raw);
+        const __m128d b_e = _mm_set_sd(b.m_exponent_raw);
+        const __m128i eq = _mm_castpd_si128(_mm_xor_pd(a_e, b_e));
+        return _mm_test_all_zeros(eq, eq);
+#else
+        /* It's tempting to compare the raw exponents here, but that is dangerous.
+         * Due to the XOR mask, the raw exponents might appear to be NaN, which
+         * have strange comparison semantics. Note that it *might* still be safe
+         * to use the raw exponents here, but as long as there's no proof that is
+         * is, let's rather be safe than sorry.
+         */
+        return (a.exponent() == b.exponent());
+#endif
+    }
+
+    ED_ALWAYS_INLINE
+    static void make_exponents_uniform(extended_double& a, extended_double& b) {
+        if (!are_exponents_uniform(a, b))
+            make_exponents_uniform_slowpath(a, b);
+    }
 
 	void check_consistency() {
 #if ED_ENABLE_ASSERTS_NORMALIZATION
@@ -356,56 +384,15 @@ private:
 #endif
 	}
 
-    /**
-     * Normalizes the fractional part to lie within
-     *   [ 1 , FRACTION_RESCALING_THRESHOLD ),
-     * and updates the exponent field accordingly.
-     */
 	void normalize_slowpath();
 
-	/**
-	 * Rescales the fractional part of argument with the smaller absolute value
-	 * such that both arguments afterwards have the same exponent.
-	 *
-	 * The argument with the smaller absolute value will afterwards be generally
-	 * NOT normalized, i.e. its m_fraction will lie outside of
-	 *   [ 1 , FRACTION_RESCALING_THRESHOLD ).
-	 * The smaller absolute value may become zero during the rescaling, in which
-	 * case the exponent will NOT necessarily be set to the smallest possible
-	 * value! Any public function that calls make_exponents_uniform must thus
-	 * ensure to eventually normalize its result before returning it.
-	 */
-	ED_ALWAYS_INLINE
-	static void make_exponents_uniform(extended_double& a, extended_double& b) {
-#if ED_ENABLE_SSE
-		const __m128d a_e = _mm_set_sd(a.m_exponent_raw);
-		const __m128d b_e = _mm_set_sd(b.m_exponent_raw);
-		const __m128i eq = _mm_castpd_si128(_mm_xor_pd(a_e, b_e));
-		if (!_mm_test_all_zeros(eq, eq))
-			make_exponents_uniform_slowpath(a, b);
-#else
-		if (a.exponent() != b.exponent())
-			make_exponents_uniform_slowpath(a, b);
-#endif
-	}
-
-	static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
-
-#if !ED_ENABLE_SSE
-	struct uniformity_factor {
-		uniformity_factor(double _a_fraction_f, double _b_fraction_f,
-		                   int64_t _a_exponent_mask, int64_t _b_exponent_mask)
-			:a_fraction_f(_a_fraction_f)
-			,b_fraction_f(_b_fraction_f)
-			,a_exponent_mask(_a_exponent_mask)
-			,b_exponent_mask(_b_exponent_mask)
-		{}
-
-		double a_fraction_f, b_fraction_f;
-		int64_t a_exponent_mask, b_exponent_mask;
-	};
-	static const uniformity_factor s_uniformity_factors[5];
-#endif
+    void add_slowpath(const extended_double& v);
+    
+    ED_ALWAYS_INLINE
+    static void rescale_fractions(const extended_double& a, const extended_double& b,
+                                  double& a_f, double& b_f, double& e);
+    
+    static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
     
 	double convert_to_double() const;
 };
