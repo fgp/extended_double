@@ -36,6 +36,17 @@
 #   define ED_ASSERT_NORMALIZATION(x)
 #endif
 
+#ifndef ED_ENABLE_SSE
+#	define ED_ENABLE_SSE 1
+#endif
+#if ED_ENABLE_SSE
+#	include <xmmintrin.h>
+#	include <emmintrin.h>
+#	include <pmmintrin.h>
+#	include <tmmintrin.h>
+#	include <smmintrin.h>
+#endif
+
 struct extended_double {
 	/**
 	 * Default constructor for extended_double, sets the value to 0.
@@ -79,10 +90,15 @@ struct extended_double {
 	 */
 	ED_ALWAYS_INLINE
 	double exponent() const {
+#if ED_ENABLE_SSE
+		const __m128d m =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
+		return _mm_cvtsd_f64(_mm_xor_pd(_mm_set_sd(m_exponent_raw), m));
+#else
 		ieee754_double_t v;
 		v.as_double = m_exponent_raw;
 		v.as_uint64 ^= EXPONENT_MASK;
 		return v.as_double;
+#endif
 	}
 
 	ED_ALWAYS_INLINE
@@ -296,10 +312,15 @@ private:
 
 	ED_ALWAYS_INLINE
 	void set_exponent(double exponent) {
+#if ED_ENABLE_SSE
+		const __m128d m =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
+		m_exponent_raw = _mm_cvtsd_f64(_mm_xor_pd(_mm_set_sd(exponent), m));
+#else
 		ieee754_double_t v;
 		v.as_double = exponent;
 		v.as_uint64 ^= EXPONENT_MASK;
 		m_exponent_raw = v.as_double;
+#endif
 	}
 
 	ED_ALWAYS_INLINE
@@ -353,8 +374,16 @@ private:
 	 */
 	ED_ALWAYS_INLINE
 	static void make_exponents_uniform(extended_double& a, extended_double& b) {
+#if ED_ENABLE_SSE
+		const __m128d a_e = _mm_set_sd(a.m_exponent_raw);
+		const __m128d b_e = _mm_set_sd(b.m_exponent_raw);
+		const __m128i eq = _mm_castpd_si128(_mm_xor_pd(a_e, b_e));
+		if (!_mm_test_all_zeros(eq, eq))
+			make_exponents_uniform_slowpath(a, b);
+#else
 		if (a.exponent() != b.exponent())
 			make_exponents_uniform_slowpath(a, b);
+#endif
 	}
 
 	static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);

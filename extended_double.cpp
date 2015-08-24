@@ -98,6 +98,35 @@ const extended_double::uniformity_factor extended_double::s_uniformity_factors[5
 void
 extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
 {
+#if ED_ENABLE_SSE
+    const __m128d EXP_LB = _mm_set1_pd(double(-int32_t(IEEE754_DOUBLE_EXP_EXCESS)));
+    const __m128i EXP_EXC = _mm_set_epi16(0, 0, 0, 0,
+                                          0, IEEE754_DOUBLE_EXP_EXCESS,
+                                          0, IEEE754_DOUBLE_EXP_EXCESS);
+
+    const __m128d e_a = _mm_set_sd(a.exponent());
+    const __m128d e_b = _mm_set_sd(b.exponent());
+    const __m128d e_ab = _mm_unpacklo_pd(e_a, e_b);
+    const __m128d e_ba = _mm_unpacklo_pd(e_b, e_a);
+    const __m128d d = _mm_sub_pd(e_ab, e_ba);
+    const __m128d lt_ab = _mm_cmplt_pd(e_ab, e_ba);
+
+    const __m128d res_e_ab = _mm_blendv_pd(e_ab, e_ba, lt_ab);
+    a.set_exponent(_mm_cvtsd_f64(res_e_ab));
+    b.set_exponent(_mm_cvtsd_f64(res_e_ab));
+
+    const __m128i d_sat = _mm_cvtpd_epi32(_mm_max_pd(EXP_LB, _mm_min_pd(d, _mm_setzero_pd())));
+    const __m128i dbl_exp = _mm_add_epi16(d_sat, EXP_EXC);
+    const __m128i dbl = _mm_slli_epi32(_mm_shuffle_epi32(dbl_exp,
+                                                         _MM_SHUFFLE(1, 3, 0, 3)),
+                                       31 - IEEE754_DOUBLE_EXP_BITS);
+
+    const __m128d f_ab = _mm_set_pd(b.fraction(), a.fraction());
+    const __m128d s = _mm_castsi128_pd(dbl);
+    const __m128d res_f_ab = _mm_mul_pd(f_ab, s);
+    a.set_fraction(_mm_cvtsd_f64(res_f_ab));
+    b.set_fraction(_mm_cvtsd_f64(_mm_unpackhi_pd(res_f_ab, res_f_ab)));
+#else
     const double e_delta = a.exponent() - b.exponent();
     const double THRESHOLD = 2*FRACTION_RESCALING_THRESHOLD_LOG2;
     const int32_t e_delta_sat = int32_t(std::min(std::max(-THRESHOLD, e_delta),
@@ -116,6 +145,7 @@ extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_do
     e.as_uint64 = ((e_a.as_uint64 & f.a_exponent_mask)
                    | (e_b.as_uint64 & f.b_exponent_mask));
     a.m_exponent_raw = b.m_exponent_raw = e.as_double;
+#endif
 }
 
 std::ostream& operator<<(std::ostream& dst, const extended_double& v) {
