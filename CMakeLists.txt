@@ -23,7 +23,7 @@ elseif (1)
 endif (EXISTS ${BOOST_FRAMEWORK})
 
 # Enable SSE4.2
-add_definitions(-msse4.2)
+add_definitions(-msse4.1 -fvisibility=hidden -fvisibility-inlines-hidden)
 
 # Defines
 add_definitions(-DED_ENABLE_ASSERTS_NORMALIZATION=1)
