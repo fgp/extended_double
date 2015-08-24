@@ -94,19 +94,12 @@ const extended_double::uniformity_factor extended_double::s_uniformity_factors[5
 	extended_double::uniformity_factor(1.0       , exp2(-256), -1,  0),
 	extended_double::uniformity_factor(1.0       , 0.0       , -1,  0)
 };
+#endif
 
 void
 extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
 {
 #if ED_ENABLE_SSE
-    /* Smallest possible IEEE754 exponent (EXP_LB) as a double, and
-     * the IEEE754 exponent excess in the first two entries of a int16 vector
-     */
-    const __m128d EXP_LB = _mm_set1_pd(double(-int32_t(IEEE754_DOUBLE_EXP_EXCESS)));
-    const __m128i EXP_EXC = _mm_set_epi16(0, 0, 0, 0,
-                                          0, IEEE754_DOUBLE_EXP_EXCESS,
-                                          0, IEEE754_DOUBLE_EXP_EXCESS);
-
     /* Construct two vectors e_ab = ( a, b ) and e_ba = ( b, a ) */
     const __m128d e_a = _mm_set_sd(a.exponent());
     const __m128d e_b = _mm_set_sd(b.exponent());
@@ -115,23 +108,21 @@ extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_do
 
     /* Compute delta vector ( a - b, b - a) */
     const __m128d d = _mm_sub_pd(e_ab, e_ba);
+    const __m128d d_lt0 = _mm_cmplt_pd(e_ab, e_ba);
+    const __m128d d_eqth = _mm_cmpeq_pd(d, _mm_set1_pd(-FRACTION_RESCALING_THRESHOLD_LOG2));
 
     /* Compute output exponent vector ( max(a,b), max(a,b) ) and store back */
-    const __m128d lt_ab = _mm_cmplt_pd(e_ab, e_ba);
-    const __m128d res_e_ab = _mm_blendv_pd(e_ab, e_ba, lt_ab);
+    const __m128d res_e_ab = _mm_blendv_pd(e_ab, e_ba, d_lt0);
     a.set_exponent(_mm_cvtsd_f64(res_e_ab));
     b.set_exponent(_mm_cvtsd_f64(res_e_ab));
 
-    /* Compute s = min(2^d, 0) by clamping d to [ -EXP_LB, 0 ], and placing it
-     * in the exponent fields of a double vector.
+    /* Compute s =~ min(2^d, 0) by distinguishing the cases d=0, d=-1, d<=-2.
+     * For d <= -2, it suffices to set s = 0, since then a + b = max(a, b).
      */
-    const __m128i d_sat = _mm_cvtpd_epi32(_mm_max_pd(EXP_LB, _mm_min_pd(d, _mm_setzero_pd())));
-    const __m128i dbl_exp = _mm_add_epi16(d_sat, EXP_EXC);
-    const __m128i dbl = _mm_slli_epi32(_mm_shuffle_epi32(dbl_exp,
-                                                         _MM_SHUFFLE(1, 3, 0, 3)),
-                                       31 - IEEE754_DOUBLE_EXP_BITS);
-    const __m128d s = _mm_castsi128_pd(dbl);
-
+    const __m128i s = _mm_or_pd(_mm_or_pd(_mm_setzero_pd(),
+                                          _mm_andnot_pd(d_lt0, _mm_set1_pd(1.0))),
+                                _mm_and_pd(d_eqth, _mm_set1_pd(FRACTION_RESCALING_THRESHOLD_INV)));
+    
     /* Compute output fractions by multiplying with s */
     const __m128d f_ab = _mm_set_pd(b.fraction(), a.fraction());
     const __m128d res_f_ab = _mm_mul_pd(f_ab, s);
