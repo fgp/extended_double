@@ -30,7 +30,9 @@ double extended_double::get_exponent() {
 }
 #endif
 
-extended_double extended_double::pow2(int64_t exponent) {
+extended_double
+extended_double::pow2(int64_t exponent)
+{
     const int32_t e_mod = (exponent % FRACTION_RESCALING_THRESHOLD_LOG2);
     const int32_t e_nat = (e_mod >= 0) ? e_mod : e_mod + FRACTION_RESCALING_THRESHOLD_LOG2;
 
@@ -40,7 +42,9 @@ extended_double extended_double::pow2(int64_t exponent) {
     return extended_double(f.as_double, exponent - e_nat);
 }
 
-double extended_double::convert_to_double() const {
+double
+extended_double::convert_to_double() const
+{
     ieee754_double_t r;
     r.as_double = m_fraction;
     const int32_t f_e = int32_t(r.as_fields.exponent) -int32_t(IEEE754_DOUBLE_EXP_EXCESS);
@@ -52,7 +56,9 @@ double extended_double::convert_to_double() const {
 }
 
 
-void extended_double::normalize_slowpath() {
+void
+extended_double::normalize_slowpath()
+{
     /* Make fields of native double "m_fraction" available */
     ieee754_double_t f;
     f.as_double = m_fraction;
@@ -203,7 +209,9 @@ extended_double::add_slowpath(const extended_double& v)
     set_fraction(t_f + v_f);
 }
 
-std::ostream& operator<<(std::ostream& dst, const extended_double& v) {
+std::ostream&
+operator<<(std::ostream& dst, const extended_double& v)
+{
 	if (v.m_exponent_raw == 0)
 		dst << '0';
 	else {

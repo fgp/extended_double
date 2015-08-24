@@ -394,7 +394,7 @@ private:
     
     static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
     
-	double convert_to_double() const;
+    double convert_to_double() const;
 };
 
 ED_ALWAYS_INLINE
