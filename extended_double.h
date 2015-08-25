@@ -54,12 +54,12 @@ struct extended_double {
     /**
      * Base-2 Logarithm of rescaling threshold.
      */
-    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 256;
+    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 512;
     
     /**
      * Base-2 double Logarithm of rescaling threshold.
      */
-    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2_LOG2 = 8;
+    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2_LOG2 = 9;
     ED_ASSERT_STATIC((int32_t(1) << FRACTION_RESCALING_THRESHOLD_LOG2_LOG2)
                      == FRACTION_RESCALING_THRESHOLD_LOG2);
     
