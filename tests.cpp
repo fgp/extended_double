@@ -221,8 +221,8 @@ BOOST_AUTO_TEST_CASE(infinities) {
 BOOST_AUTO_TEST_CASE(arithmetic) {
     const int64_t exponents[] = { -0x100000000, -1500, 0, 1500, 0x100000000 };
     const double fractions[] = {
-        -firstbefore(2.0), -1.0 - 1.0/M_PI, nextafter(-1.0), -1.0,
-        1.0, nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0)
+        nextafter(2.0), -firstbefore(2.0), -1.0 - 1.0/M_PI, nextafter(-1.0), -1.0, firstbefore(-1.0),
+        firstbefore(1.0), 1.0, nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0), nextafter(2.0)
     };
     
     for(int e1_i = 0; e1_i <= sizeof(exponents) / sizeof(int64_t); ++e1_i) {
