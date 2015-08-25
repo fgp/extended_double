@@ -22,6 +22,9 @@ elseif (1)
 	message(SEND_ERROR "Neither ${BOOST_FRAMEWORK} nor ${BOOST_ROOT} exists")
 endif (EXISTS ${BOOST_FRAMEWORK})
 
+# Enable SSE4.2
+add_definitions(-msse4.1 -fvisibility=hidden -fvisibility-inlines-hidden)
+
 # Defines
 add_definitions(-DED_ENABLE_ASSERTS_NORMALIZATION=1)
 add_definitions(-DED_ENABLE_ASSERTS_OVERFLOW=1)

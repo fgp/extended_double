@@ -35,13 +35,30 @@ namespace {
 BOOST_AUTO_TEST_CASE(defines) {
     BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_NORMALIZATION, 1);
     BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_STATIC, 1);
+    std::cerr << "Using SSE: ";
+#if ED_ENABLE_SSE
+    std::cerr << "Yes";
+#else
+    std::cerr << "No";
+#endif
+    std::cerr << std::endl;
 }
+
+#ifdef NDEBUG
+BOOST_AUTO_TEST_CASE(ndebug_not_set) {
+    BOOST_CHECK(false);
+}
+#endif
 
 BOOST_AUTO_TEST_CASE(conversions) {
     const double fractions[] = { -firstbefore(2.0), -1.9, -1.0 - 1.0/M_PI,
                                  -1.0, nextafter(1.0), 1.1, 1.0 + 1.0/M_PI, 1.9,
                                  firstbefore(2.0) };
     
+    /* [ -1022, 1023 ] is the range the exponents of IEEE754 non-zero and finite
+     * double-precision values. -1023 is the exponent of zero (and sub-normals),
+     * and 1024 the exponent of +/- infinity.
+     */
     for(int32_t e = -1022; e <= 1023; ++e) {
         for(int f = 0; f < sizeof(fractions) / sizeof(double); ++f) {
             const double d = std::ldexp(fractions[f], e);
@@ -50,7 +67,9 @@ BOOST_AUTO_TEST_CASE(conversions) {
             
             const extended_double v = d;
             BOOST_CHECK_EQUAL(extended_double_cast<double>(v), d);
-            BOOST_CHECK_EQUAL(v.exponent() % 256, 0);
+            BOOST_CHECK_EQUAL(int64_t(v.exponent())
+                              % extended_double::FRACTION_RESCALING_THRESHOLD_LOG2,
+                              0);
             
             int v_f_e = 0;
             const double v_fp = std::frexp(v.fraction(), &v_f_e);
@@ -59,7 +78,7 @@ BOOST_AUTO_TEST_CASE(conversions) {
             v_f_e -= 1;
             
             BOOST_CHECK_GE(v_f_e, 0);
-            BOOST_CHECK_LT(v_f_e, 256);
+            BOOST_CHECK_LT(v_f_e, extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
             BOOST_CHECK_EQUAL(v.exponent() + v_f_e, e);
         }
     }
@@ -200,13 +219,18 @@ BOOST_AUTO_TEST_CASE(infinities) {
 }
 
 BOOST_AUTO_TEST_CASE(arithmetic) {
-    const double fractions[] = { -firstbefore(2.0), -1.0 - 1.0/M_PI, -1.0,
-                                 nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0) };
+    const int64_t exponents[] = { -0x100000000, -1500, 0, 1500, 0x100000000 };
+    const double fractions[] = {
+        -firstbefore(2.0), -1.0 - 1.0/M_PI, nextafter(-1.0), -1.0,
+        1.0, nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0)
+    };
     
-    for(int e1_1 = -1500; e1_1 <= 1500; e1_1 += 1500) {
-        for(int e2_1 = -1500; e2_1 <= 1500; e2_1 += 1500) {
-            for(int e1_2 = 0; e1_2 <= 300; e1_2 += 7) {
-                for(int e2_2 = 0; e2_2 <= 300; e2_2 += 7) {
+    for(int e1_i = 0; e1_i <= sizeof(exponents) / sizeof(int64_t); ++e1_i) {
+        for(int e2_i = 0; e2_i <= sizeof(exponents) / sizeof(int64_t); ++e2_i) {
+            const int64_t e1_1 = exponents[e1_i];
+            const int64_t e2_1 = exponents[e1_i];
+            for(int e1_2 = 0; e1_2 <= 513; e1_2 += 57) {
+                for(int e2_2 = 0; e2_2 <= 513; e2_2 += 57) {
                     const int e1 = e1_1 + e1_2;
                     const int e2 = e2_1 + e2_2;
                     for(int f1 = 0; f1 < sizeof(fractions) / sizeof(double); ++f1) {
