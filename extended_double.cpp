@@ -205,6 +205,10 @@ extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_do
 void
 extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 {
+    /* Fetch fractions and exponents of the two values and compute difference
+     * between exponents. The difference must be non-zero, otherwise we'd
+     * have taken the fast path!
+     * */
     const double e_a = exponent();
     const double f_a = fraction();
     const double e_b = v.exponent();
@@ -212,6 +216,11 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     const double e_d = e_a - e_b;
     ED_ASSERT_NORMALIZATION(e_d != 0.0);
 
+    /* Set e_r to the larger exponent and f_r to the corresponding fraction
+     * If the smaller exponent is more than one rescaling threshold less
+     * than the larger one, the sum of the two values is (after rounding)
+     * the same as the larger value. There's also no need to rescale in this case
+     */
 #if ED_ENABLE_SSE
     double e_r = _mm_cvtsd_f64(_mm_max_sd(_mm_set_sd(e_a),
                                           _mm_set_sd(e_b)));
@@ -222,12 +231,30 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     double e_r = std::max(e_a, e_b);
     double f_r = (e_d < 0.0) ? f_b : f_a;
 #endif
-    if (std::fabs(e_d) != FRACTION_RESCALING_THRESHOLD_LOG2) {
+    if (!(std::fabs(e_d) == FRACTION_RESCALING_THRESHOLD_LOG2)) {
         set_exponent(e_r);
         set_fraction(f_r);
         return;
     }
 
+    /* The exponents differ by exactly one rescaling threshold. Thus, the
+     * smaller value's fraction must be divided by FRACTION_RESCALING_THRESHOLD
+     * before adding it to the larger value's fraction.
+     *
+     * The value that is actually added will thus lie within
+     *   [ FRACTION_RESCALING_THRESHOLD_INV, 1 ).
+     * Therefore, for the sum to exceed FRACTION_RESCALING_THRESHOLD, f_r would
+     * need to be at greater than FRACTION_RESCALING_THRESHOLD - 1. Since the
+     * interval [ FRACTION_RESCALING_THRESHOLD - 1, FRACTION_RESCALING_THRESHOLD)
+     * contains no representable numbers if FRACTION_RESCALING_THRESHOLD is
+     * large enough, no check for | f_r + f_2 | >= FRACTION_RESCALING_THRESHOLD
+     * is necessary.
+     *
+     * A check for | f_r + f_2 | < 1.0 *is* necessary, but for similar reasons
+     * as above, | f_r + f_2 | >= 2^-IEEE754_DOUBLE_MAN_BITS. Thus, a single
+     * upwards rescaling round suffices, and there's no need to handle a zero
+     * result.
+     */
 #if ED_ENABLE_SSE
     const double f_2 = _mm_cvtsd_f64(_mm_blendv_pd(_mm_set_sd(f_b),
                                                    _mm_set_sd(f_a),
@@ -235,7 +262,6 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 #else
     const double f_2 = (e_d < 0.0) ? f_a : f_b;
 #endif
-
     f_r += f_2 * FRACTION_RESCALING_THRESHOLD_INV;
     ED_ASSERT_NORMALIZATION(std::fabs(f_r) < FRACTION_RESCALING_THRESHOLD);
     if (std::fabs(f_r) >= 1.0) {
@@ -244,6 +270,7 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
         return;
     }
 
+    /* Rescale one if necessary to normalize the result. See above. */
     e_r -= FRACTION_RESCALING_THRESHOLD_LOG2;
     f_r *= FRACTION_RESCALING_THRESHOLD;
     ED_ASSERT_NORMALIZATION(std::fabs(f_r) >= 1.0);
