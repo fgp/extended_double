@@ -55,6 +55,10 @@ BOOST_AUTO_TEST_CASE(conversions) {
                                  -1.0, nextafter(1.0), 1.1, 1.0 + 1.0/M_PI, 1.9,
                                  firstbefore(2.0) };
     
+    /* [ -1022, 1023 ] is the range the exponents of IEEE754 non-zero and finite
+     * double-precision values. -1023 is the exponent of zero (and sub-normals),
+     * and 1024 the exponent of +/- infinity.
+     */
     for(int32_t e = -1022; e <= 1023; ++e) {
         for(int f = 0; f < sizeof(fractions) / sizeof(double); ++f) {
             const double d = std::ldexp(fractions[f], e);
