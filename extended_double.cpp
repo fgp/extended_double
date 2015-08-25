@@ -1,3 +1,5 @@
+#include <iomanip>
+
 #include "extended_double.h"
 
 const uint64_t extended_double::EXPONENT_MASK;
@@ -217,7 +219,8 @@ operator<<(std::ostream& dst, const extended_double& v)
 	else {
 		int e = 0;
 		const double f = std::frexp(v.fraction(), &e);
-		dst << f << "*2^" << (v.exponent() + double(e));
+        dst << std::setprecision(std::numeric_limits<double>::max_digits10) << 2.0*f;
+		dst << "*2^[" << (v.exponent() + double(e) - 1) << "]";
 	}
     
     return dst;
