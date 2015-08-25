@@ -179,7 +179,7 @@ extended_double::rescale_fractions(const extended_double& a, const extended_doub
     /* Compute s =~ min(2^d, 0) by distinguishing the cases d=0, d=-1, d<=-2.
      * For d <= -2, it suffices to set s = 0, since then a + b = max(a, b).
      */
-    const __m128i s = _mm_or_pd(_mm_or_pd(_mm_setzero_pd(),
+    const __m128d s = _mm_or_pd(_mm_or_pd(_mm_setzero_pd(),
                                           _mm_andnot_pd(d_lt0, _mm_set1_pd(1.0))),
                                 _mm_and_pd(d_eqth, _mm_set1_pd(TH_INV)));
     
@@ -219,7 +219,7 @@ operator<<(std::ostream& dst, const extended_double& v)
 	else {
 		int e = 0;
 		const double f = std::frexp(v.fraction(), &e);
-        dst << std::setprecision(std::numeric_limits<double>::max_digits10) << 2.0*f;
+        dst << std::setprecision(std::numeric_limits<double>::digits10) << 2.0*f;
 		dst << "*2^[" << (v.exponent() + double(e) - 1) << "]";
 	}
     
