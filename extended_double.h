@@ -134,15 +134,20 @@ struct extended_double {
 
 	ED_ALWAYS_INLINE
 	extended_double& operator+=(const extended_double& v) {
-        if (are_exponents_uniform(*this, v))
-            set_fraction(fraction() + v.fraction());
-        else
-            add_slowpath(v);
-        const double f = std::fabs(fraction());
-        if ((f < 1.0) ||
-            (f >= FRACTION_RESCALING_THRESHOLD))
-            normalize_slowpath();
-        check_consistency();
+		if (are_exponents_uniform(*this, v)) {
+			set_fraction(fraction() + v.fraction());
+			const double f_abs = std::fabs(fraction());
+			if (f_abs >= FRACTION_RESCALING_THRESHOLD) {
+				set_fraction(fraction() * FRACTION_RESCALING_THRESHOLD_INV);
+				set_exponent(exponent() + FRACTION_RESCALING_THRESHOLD_LOG2);
+			}
+			else if (f_abs < 1.0)
+				normalize_slowpath();
+		}
+		else
+			add_nonuniform_exponents_slowpath(v);
+
+		check_consistency();
         return *this;
     }
     
@@ -386,7 +391,7 @@ private:
 
 	void normalize_slowpath();
 
-    void add_slowpath(const extended_double& v);
+    void add_nonuniform_exponents_slowpath(const extended_double& v);
     
     ED_ALWAYS_INLINE
     static void rescale_fractions(const extended_double& a, const extended_double& b,

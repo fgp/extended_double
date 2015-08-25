@@ -203,12 +203,52 @@ extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_do
 }
 
 void
-extended_double::add_slowpath(const extended_double& v)
+extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 {
-    double t_f, v_f, e_raw;
-    rescale_fractions(*this, v, t_f, v_f, e_raw);
-    m_exponent_raw = e_raw;
-    set_fraction(t_f + v_f);
+    const double e_a = exponent();
+    const double f_a = fraction();
+    const double e_b = v.exponent();
+    const double f_b = v.fraction();
+    const double e_d = e_a - e_b;
+    ED_ASSERT_NORMALIZATION(e_d != 0.0);
+
+#if ED_ENABLE_SSE
+    double e_r = _mm_cvtsd_f64(_mm_max_sd(_mm_set_sd(e_a),
+                                          _mm_set_sd(e_b)));
+    double f_r = _mm_cvtsd_f64(_mm_blendv_pd(_mm_set_sd(f_a),
+                                             _mm_set_sd(f_b),
+                                             _mm_set_sd(e_d)));
+#else
+    double e_r = std::max(e_a, e_b);
+    double f_r = (e_d < 0.0) ? f_b : f_a;
+#endif
+    if (std::fabs(e_d) != FRACTION_RESCALING_THRESHOLD_LOG2) {
+        set_exponent(e_r);
+        set_fraction(f_r);
+        return;
+    }
+
+#if ED_ENABLE_SSE
+    const double f_2 = _mm_cvtsd_f64(_mm_blendv_pd(_mm_set_sd(f_b),
+                                                   _mm_set_sd(f_a),
+                                                   _mm_set_sd(e_d)));
+#else
+    const double f_2 = (e_d < 0.0) ? f_a : f_b;
+#endif
+
+    f_r += f_2 * FRACTION_RESCALING_THRESHOLD_INV;
+    ED_ASSERT_NORMALIZATION(std::fabs(f_r) < FRACTION_RESCALING_THRESHOLD);
+    if (std::fabs(f_r) >= 1.0) {
+        set_exponent(e_r);
+        set_fraction(f_r);
+        return;
+    }
+
+    e_r -= FRACTION_RESCALING_THRESHOLD_LOG2;
+    f_r *= FRACTION_RESCALING_THRESHOLD;
+    ED_ASSERT_NORMALIZATION(std::fabs(f_r) >= 1.0);
+    set_exponent(e_r);
+    set_fraction(f_r);
 }
 
 std::ostream&
