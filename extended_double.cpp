@@ -96,7 +96,112 @@ extended_double::normalize_slowpath()
     }
 }
 
-#if !ED_ENABLE_SSE
+#if ED_ENABLE_SSE
+
+void
+extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
+{
+    const double TH_LOG2 = extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
+    const double TH_INV = extended_double::FRACTION_RESCALING_THRESHOLD_INV;
+
+    /* Construct two vectors e_ab = ( a, b ) and e_ba = ( b, a ) */
+    const __m128d e_a = _mm_set_sd(a.exponent());
+    const __m128d e_b = _mm_set_sd(b.exponent());
+    const __m128d e_ab = _mm_unpacklo_pd(e_a, e_b);
+    const __m128d e_ba = _mm_unpacklo_pd(e_b, e_a);
+
+    /* Compute delta vector ( a - b, b - a) */
+    const __m128d d = _mm_sub_pd(e_ab, e_ba);
+    const __m128d d_lt0 = _mm_cmplt_pd(e_ab, e_ba);
+    const __m128d d_eqth = _mm_cmpeq_pd(d, _mm_set1_pd(-TH_LOG2));
+
+    /* Compute output exponent vector ( max(a,b), max(a,b) ) and store back */
+    const __m128d res_e_ab = _mm_blendv_pd(e_ab, e_ba, d_lt0);
+    a.set_exponent<0>(res_e_ab);
+    b.set_exponent<0>(res_e_ab);
+
+    /* Compute s =~ min(2^d, 0) by distinguishing the cases d=0, d=-1, d<=-2.
+     * For d <= -2, it suffices to set s = 0, since then a + b = max(a, b).
+     */
+    const __m128d s = _mm_or_pd(_mm_or_pd(_mm_setzero_pd(),
+                                          _mm_andnot_pd(d_lt0, _mm_set1_pd(1.0))),
+                                _mm_and_pd(d_eqth, _mm_set1_pd(TH_INV)));
+
+    /* Compute output fractions by multiplying with s */
+    const __m128d f_ab = _mm_set_pd(b.fraction(), a.fraction());
+    const __m128d res_f_ab = _mm_mul_pd(f_ab, s);
+    a.set_fraction<0>(res_f_ab);
+    b.set_fraction<1>(res_f_ab);
+}
+
+void
+extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
+{
+    /* Fetch fractions and exponents of the two values and compute difference
+     * between exponents. The difference must be non-zero, otherwise we'd
+     * have taken the fast path!
+     * */
+    const __m128d TH_LOG2 = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_LOG2);
+    const __m128d TH = _mm_set_sd(FRACTION_RESCALING_THRESHOLD);
+    const __m128d TH_INV = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_INV);
+    const __m128d e_a = exponent_m128d();
+    const __m128d f_a = fraction_m128d();
+    const __m128d e_b = v.exponent_m128d();
+    const __m128d f_b = v.fraction_m128d();
+    const __m128d e_d = _mm_sub_sd(e_a, e_b);
+    ED_ASSERT_NORMALIZATION(_mm_cvtsd_f64(e_d) != 0.0);
+
+    /* Set e_r to the larger exponent and f_r to the corresponding fraction
+     * If the smaller exponent is more than one rescaling threshold less
+     * than the larger one, the sum of the two values is (after rounding)
+     * the same as the larger value. There's also no need to rescale in this case
+     */
+    __m128d e_r = _mm_max_sd(e_a, e_b);
+    __m128d f_r = _mm_blendv_pd(f_a, f_b, e_d);
+    const __m128d e_d_abs = mm_abs_sd(e_d);
+    if (!_mm_ucomieq_sd(e_d_abs, TH_LOG2)) {
+        set_exponent<0>(e_r);
+        set_fraction<0>(f_r);
+        return;
+    }
+
+    /* The exponents differ by exactly one rescaling threshold. Thus, the
+     * smaller value's fraction must be divided by FRACTION_RESCALING_THRESHOLD
+     * before adding it to the larger value's fraction.
+     *
+     * The value that is actually added will thus lie within
+     *   [ FRACTION_RESCALING_THRESHOLD_INV, 1 ).
+     * Therefore, for the sum to exceed FRACTION_RESCALING_THRESHOLD, f_r would
+     * need to be at greater than FRACTION_RESCALING_THRESHOLD - 1. Since the
+     * interval [ FRACTION_RESCALING_THRESHOLD - 1, FRACTION_RESCALING_THRESHOLD)
+     * contains no representable numbers if FRACTION_RESCALING_THRESHOLD is
+     * large enough, no check for | f_r + f_2 | >= FRACTION_RESCALING_THRESHOLD
+     * is necessary.
+     */
+    const __m128d f_2 = _mm_blendv_pd(f_b, f_a, e_d);
+    f_r = _mm_add_sd(f_r, _mm_mul_sd(f_2, TH_INV));
+    const __m128d f_r_abs = mm_abs_sd(f_r);
+    ED_ASSERT_NORMALIZATION(_mm_cvtsd_f64(f_r_abs) < FRACTION_RESCALING_THRESHOLD);
+
+
+     /* A check for | f_r + f_2 | < 1.0 *is* necessary, but for similar reasons
+      * as above, | f_r + f_2 | >= 2^-IEEE754_DOUBLE_MAN_BITS. Thus, a single
+      * upwards rescaling round suffices, and there's no need to handle a zero
+      * result.
+      */
+    if (_mm_ucomilt_sd(f_r_abs, _mm_set_sd(1.0))) {
+        /* Rescale one if necessary to normalize the result. See above. */
+        e_r = _mm_sub_sd(e_r, TH_LOG2);
+        f_r = _mm_mul_sd(f_r, TH);
+        ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) >= 1.0);
+    }
+
+    set_exponent<0>(e_r);
+    set_fraction<0>(f_r);
+}
+
+#else // !ED_ENABLE_SSE
+
 namespace {
     const double RESCALE_TH_INV = std::ldexp(1.0, -extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);
 
@@ -121,15 +226,9 @@ namespace {
         rescale_factors(1.0            , 0.0            , -1,  0)
     };
 }
-#endif
 
-#if !ED_ENABLE_SSE
-
-ED_ALWAYS_INLINE
 void
-extended_double::rescale_fractions(const extended_double& a, const extended_double& b,
-                                   double& a_f, double& b_f, double& e_raw)
-{
+extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b){
     const double e_delta = a.exponent() - b.exponent();
     const double THRESHOLD = 2*FRACTION_RESCALING_THRESHOLD_LOG2;
     const int32_t e_delta_sat = int32_t(std::min(std::max(-THRESHOLD, e_delta),
@@ -139,67 +238,15 @@ extended_double::rescale_fractions(const extended_double& a, const extended_doub
     ED_ASSERT_NORMALIZATION(e_delta_idx <= 2);
     const rescale_factors& f = rescale_factors_table[e_delta_idx + 2];
     
-    a_f = a.fraction() * f.a_fraction_f;
-    b_f = b.fraction() * f.b_fraction_f;
+    a.set_fraction(a.fraction() * f.a_fraction_f);
+    b.set_fraction(b.fraction() * f.b_fraction_f);
     
     ieee754_double_t e_a, e_b, e_max;
     e_a.as_double = a.m_exponent_raw;
     e_b.as_double = b.m_exponent_raw;
     e_max.as_uint64 = ((e_a.as_uint64 & f.a_exponent_mask)
                        | (e_b.as_uint64 & f.b_exponent_mask));
-    e_raw = e_max.as_double;
-}
-
-#else
-
-ED_ALWAYS_INLINE
-void
-extended_double::rescale_fractions(const extended_double& a, const extended_double& b,
-                                   double& a_f, double& b_f, double& e_raw)
-{
-    const double TH_LOG2 = extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
-    const double TH_INV = extended_double::FRACTION_RESCALING_THRESHOLD_INV;
-    
-    /* Construct two vectors e_ab = ( a, b ) and e_ba = ( b, a ) */
-    const __m128d e_a = _mm_set_sd(a.exponent());
-    const __m128d e_b = _mm_set_sd(b.exponent());
-    const __m128d e_ab = _mm_unpacklo_pd(e_a, e_b);
-    const __m128d e_ba = _mm_unpacklo_pd(e_b, e_a);
-    
-    /* Compute delta vector ( a - b, b - a) */
-    const __m128d d = _mm_sub_pd(e_ab, e_ba);
-    const __m128d d_lt0 = _mm_cmplt_pd(e_ab, e_ba);
-    const __m128d d_eqth = _mm_cmpeq_pd(d, _mm_set1_pd(-TH_LOG2));
-    
-    /* Compute output exponent vector ( max(a,b), max(a,b) ) and store back */
-    const __m128d res_e_ab = _mm_blendv_pd(e_ab, e_ba, d_lt0);
-    const __m128d m =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
-    e_raw = _mm_cvtsd_f64(_mm_xor_pd(res_e_ab, m));
-    
-    /* Compute s =~ min(2^d, 0) by distinguishing the cases d=0, d=-1, d<=-2.
-     * For d <= -2, it suffices to set s = 0, since then a + b = max(a, b).
-     */
-    const __m128d s = _mm_or_pd(_mm_or_pd(_mm_setzero_pd(),
-                                          _mm_andnot_pd(d_lt0, _mm_set1_pd(1.0))),
-                                _mm_and_pd(d_eqth, _mm_set1_pd(TH_INV)));
-    
-    /* Compute output fractions by multiplying with s */
-    const __m128d f_ab = _mm_set_pd(b.fraction(), a.fraction());
-    const __m128d res_f_ab = _mm_mul_pd(f_ab, s);
-    a_f = _mm_cvtsd_f64(res_f_ab);
-    b_f = _mm_cvtsd_f64(_mm_unpackhi_pd(res_f_ab, res_f_ab));
-}
-
-#endif // ED_ENABLE_SSE
-
-void
-extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
-{
-    double a_f, b_f, e_raw;
-    rescale_fractions(a, b, a_f, b_f, e_raw);
-    a.set_fraction(a_f);
-    b.set_fraction(b_f);
-    a.m_exponent_raw = b.m_exponent_raw = e_raw;
+    a.m_exponent_raw = b.m_exponent_raw = e_max.as_double;
 }
 
 void
@@ -221,16 +268,8 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
      * than the larger one, the sum of the two values is (after rounding)
      * the same as the larger value. There's also no need to rescale in this case
      */
-#if ED_ENABLE_SSE
-    double e_r = _mm_cvtsd_f64(_mm_max_sd(_mm_set_sd(e_a),
-                                          _mm_set_sd(e_b)));
-    double f_r = _mm_cvtsd_f64(_mm_blendv_pd(_mm_set_sd(f_a),
-                                             _mm_set_sd(f_b),
-                                             _mm_set_sd(e_d)));
-#else
     double e_r = std::max(e_a, e_b);
     double f_r = (e_d < 0.0) ? f_b : f_a;
-#endif
     if (!(std::fabs(e_d) == FRACTION_RESCALING_THRESHOLD_LOG2)) {
         set_exponent(e_r);
         set_fraction(f_r);
@@ -255,13 +294,7 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
      * upwards rescaling round suffices, and there's no need to handle a zero
      * result.
      */
-#if ED_ENABLE_SSE
-    const double f_2 = _mm_cvtsd_f64(_mm_blendv_pd(_mm_set_sd(f_b),
-                                                   _mm_set_sd(f_a),
-                                                   _mm_set_sd(e_d)));
-#else
     const double f_2 = (e_d < 0.0) ? f_a : f_b;
-#endif
     f_r += f_2 * FRACTION_RESCALING_THRESHOLD_INV;
     ED_ASSERT_NORMALIZATION(std::fabs(f_r) < FRACTION_RESCALING_THRESHOLD);
     if (std::fabs(f_r) >= 1.0) {
@@ -277,6 +310,9 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     set_exponent(e_r);
     set_fraction(f_r);
 }
+
+#endif // !ED_ENABLE_SSE
+
 
 std::ostream&
 operator<<(std::ostream& dst, const extended_double& v)

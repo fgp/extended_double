@@ -338,6 +338,42 @@ private:
 		m_fraction = fraction;
 	}
 
+#if ED_ENABLE_SSE
+	ED_ALWAYS_INLINE __m128d exponent_m128d() const {
+		const __m128d M =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
+		return _mm_xor_pd(_mm_load_sd(&m_exponent_raw), M);
+	}
+
+	ED_ALWAYS_INLINE __m128d fraction_m128d() const {
+		return _mm_load_sd(&m_fraction);
+	}
+
+	template<int I> ED_ALWAYS_INLINE
+	void set_exponent(__m128d exponent) {
+		ED_ASSERT_STATIC((I == 0) || (I == 1));
+		const __m128d M =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
+		const __m128d exponent_raw = _mm_xor_pd(exponent, M);
+		if (I == 0)
+			_mm_store_sd(&m_exponent_raw, exponent_raw);
+		else
+			_mm_storeh_pd(&m_exponent_raw, exponent_raw);
+	}
+
+	template<int I> ED_ALWAYS_INLINE
+	void set_fraction(__m128d fraction) {
+		ED_ASSERT_STATIC((I == 0) || (I == 1));
+		if (I == 0)
+			_mm_store_sd(&m_fraction, fraction);
+		else
+			_mm_storeh_pd(&m_fraction, fraction);
+	}
+
+	ED_ALWAYS_INLINE static __m128d mm_abs_sd(const __m128d v) {
+		const __m128d M = _mm_set_sd(-0.0);
+		return _mm_andnot_pd(M, v);
+	}
+#endif
+
 #ifndef NDEBUG
     double get_exponent();
 #endif
@@ -392,10 +428,6 @@ private:
 	void normalize_slowpath();
 
     void add_nonuniform_exponents_slowpath(const extended_double& v);
-    
-    ED_ALWAYS_INLINE
-    static void rescale_fractions(const extended_double& a, const extended_double& b,
-                                  double& a_f, double& b_f, double& e);
     
     static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
     
