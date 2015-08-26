@@ -214,7 +214,7 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
         /* Rescale one if necessary to normalize the result. See above. */
         e_r = _mm_sub_sd(e_r, TH_LOG2);
         f_r = _mm_castsi128_pd(_mm_add_epi16(_mm_castpd_si128(f_r),
-                                             TH_LOG2_IEEE754_EXP)),
+                                             TH_LOG2_IEEE754_EXP));
         ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) >= 1.0);
     }
 
