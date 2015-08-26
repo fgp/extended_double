@@ -4,6 +4,15 @@ set(BOOST_FRAMEWORK $ENV{HOME}/Installs/Frameworks)
 # CMake settings
 cmake_minimum_required(VERSION 3.0)
 cmake_policy(VERSION 3.0)
+enable_language(CXX)
+
+# Enable SSE4.2
+add_compile_options(-msse4.1 -fvisibility=hidden -fvisibility-inlines-hidden)
+
+# Defines
+add_definitions(-DED_ENABLE_ASSERTS_NORMALIZATION=1)
+add_definitions(-DED_ENABLE_ASSERTS_OVERFLOW=1)
+add_definitions(-DED_ENABLE_ASSERTS_STATIC=1)
 
 # Tester
 add_executable(tests main.cpp tests.cpp extended_double.cpp code.cpp)
@@ -21,11 +30,3 @@ elseif (EXISTS ${BOOST_ROOT})
 elseif (1)
 	message(SEND_ERROR "Neither ${BOOST_FRAMEWORK} nor ${BOOST_ROOT} exists")
 endif (EXISTS ${BOOST_FRAMEWORK})
-
-# Enable SSE4.2
-add_definitions(-msse4.1 -fvisibility=hidden -fvisibility-inlines-hidden)
-
-# Defines
-add_definitions(-DED_ENABLE_ASSERTS_NORMALIZATION=1)
-add_definitions(-DED_ENABLE_ASSERTS_OVERFLOW=1)
-add_definitions(-DED_ENABLE_ASSERTS_STATIC=1)
