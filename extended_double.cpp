@@ -100,6 +100,7 @@ extended_double::normalize_slowpath()
 
 void
 extended_double::normalize_sum_uniform_exponents() {
+    // XXX: We can do better!
     normalize_slowpath();
 }
 
@@ -225,6 +226,7 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 
 void
 extended_double::normalize_sum_uniform_exponents() {
+    // XXX: We can do better!
     normalize_slowpath();
 }
 
