@@ -99,6 +99,11 @@ extended_double::normalize_slowpath()
 #if ED_ENABLE_SSE
 
 void
+extended_double::normalize_sum_uniform_exponents() {
+    normalize_slowpath();
+}
+
+void
 extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_double& b)
 {
     const double TH_LOG2 = extended_double::FRACTION_RESCALING_THRESHOLD_LOG2;
@@ -217,6 +222,11 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 }
 
 #else // !ED_ENABLE_SSE
+
+void
+extended_double::normalize_sum_uniform_exponents() {
+    normalize_slowpath();
+}
 
 namespace {
     const double RESCALE_TH_INV = std::ldexp(1.0, -extended_double::FRACTION_RESCALING_THRESHOLD_LOG2);

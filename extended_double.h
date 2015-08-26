@@ -134,18 +134,38 @@ struct extended_double {
 
 	ED_ALWAYS_INLINE
 	extended_double& operator+=(const extended_double& v) {
-		if (are_exponents_uniform(*this, v)) {
-			set_fraction(fraction() + v.fraction());
-			const double f_abs = std::fabs(fraction());
-			if (f_abs >= FRACTION_RESCALING_THRESHOLD) {
-				set_fraction(fraction() * FRACTION_RESCALING_THRESHOLD_INV);
-				set_exponent(exponent() + FRACTION_RESCALING_THRESHOLD_LOG2);
-			}
-			else if (f_abs < 1.0)
-				normalize_slowpath();
+#if ED_ENABLE_SSE
+		const __m128i IEEE754_CMP_ADJ = _mm_set_epi64x(
+				0, (int64_t(0x401) << IEEE754_DOUBLE_MAN_BITS));
+		const __m128i IEEE754_CMP_MASK = _mm_set_epi64x(
+				0, (int64_t(0x600) << IEEE754_DOUBLE_MAN_BITS));
+
+		const __m128d e_a_raw = _mm_set_sd(m_exponent_raw);
+		const __m128d e_b_raw = _mm_set_sd(v.m_exponent_raw);
+		const __m128i eq = _mm_castpd_si128(_mm_xor_pd(e_a_raw, e_b_raw));
+		if(_mm_test_all_zeros(eq, eq)) {
+			const __m128d f_a = _mm_set_sd(m_fraction);
+			const __m128d f_b = _mm_set_sd(v.m_fraction);
+			const __m128d f_r = _mm_add_sd(f_a, f_b);
+			set_fraction<0>(f_r);
+			const __m128i f_r_cmp = _mm_add_epi16(_mm_castpd_si128(f_r),
+												  IEEE754_CMP_ADJ);
+			if (!_mm_test_all_zeros(f_r_cmp, IEEE754_CMP_MASK))
+				normalize_sum_uniform_exponents();
 		}
 		else
 			add_nonuniform_exponents_slowpath(v);
+#else
+		if (are_exponents_uniform(*this, v)) {
+			set_fraction(fraction() + v.fraction());
+			const double f_abs = std::fabs(fraction());
+			if ((f_abs >= FRACTION_RESCALING_THRESHOLD)
+			    || (f_abs < 1.0))
+				normalize_sum_uniform_exponents();
+		}
+		else
+			add_nonuniform_exponents_slowpath(v);
+#endif
 
 		check_consistency();
         return *this;
@@ -426,6 +446,8 @@ private:
 	}
 
 	void normalize_slowpath();
+
+	void normalize_sum_uniform_exponents();
 
     void add_nonuniform_exponents_slowpath(const extended_double& v);
     

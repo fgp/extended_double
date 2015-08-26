@@ -262,7 +262,7 @@ BOOST_AUTO_TEST_CASE(arithmetic) {
                                 BOOST_CHECK_EQUAL(log2(s_q) + s.exponent(),
                                                   std::max(e1, e2));
                             }
-                            
+
                             /* Check subtraction */
                             const extended_double d = v1 - v2;
                             const double d1 = fractions[f1] * exp2(std::min(e1 - e2, 0));
