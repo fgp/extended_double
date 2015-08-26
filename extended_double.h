@@ -403,7 +403,7 @@ private:
             make_exponents_uniform_slowpath(a, b);
     }
 
-	void check_consistency() {
+	void check_consistency() const {
 #if ED_ENABLE_ASSERTS_NORMALIZATION
 		const double INF = std::numeric_limits<double>::infinity();
 		assert((fraction() == 0.0) == (exponent() == -INF));
