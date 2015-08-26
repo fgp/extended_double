@@ -137,13 +137,16 @@ extended_double::make_exponents_uniform_slowpath(extended_double& a, extended_do
 void
 extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 {
+    /* Various Constants */
+    const __m128i TH_LOG2_IEEE754_EXP = _mm_set_epi64x(
+            0, (int64_t(FRACTION_RESCALING_THRESHOLD_LOG2)
+                << IEEE754_DOUBLE_MAN_BITS));
+    const __m128d TH_LOG2 = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_LOG2);
+
     /* Fetch fractions and exponents of the two values and compute difference
      * between exponents. The difference must be non-zero, otherwise we'd
      * have taken the fast path!
      * */
-    const __m128d TH_LOG2 = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_LOG2);
-    const __m128d TH = _mm_set_sd(FRACTION_RESCALING_THRESHOLD);
-    const __m128d TH_INV = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_INV);
     const __m128d e_a = exponent_m128d();
     const __m128d f_a = fraction_m128d();
     const __m128d e_b = v.exponent_m128d();
@@ -154,35 +157,47 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     /* Set e_r to the larger exponent and f_r to the corresponding fraction
      * If the smaller exponent is more than one rescaling threshold less
      * than the larger one, the sum of the two values is (after rounding)
-     * the same as the larger value. There's also no need to rescale in this case
+     * the same as the larger value, and we're done.
      */
+    const __m128d e_d_abs = mm_abs_sd(e_d);
     __m128d e_r = _mm_max_sd(e_a, e_b);
     __m128d f_r = _mm_blendv_pd(f_a, f_b, e_d);
-    const __m128d e_d_abs = mm_abs_sd(e_d);
     if (!_mm_ucomieq_sd(e_d_abs, TH_LOG2)) {
         set_exponent<0>(e_r);
         set_fraction<0>(f_r);
         return;
     }
 
-    /* The exponents differ by exactly one rescaling threshold. Thus, the
-     * smaller value's fraction must be divided by FRACTION_RESCALING_THRESHOLD
-     * before adding it to the larger value's fraction.
-     *
-     * The value that is actually added will thus lie within
-     *   [ FRACTION_RESCALING_THRESHOLD_INV, 1 ).
-     * Therefore, for the sum to exceed FRACTION_RESCALING_THRESHOLD, f_r would
-     * need to be at greater than FRACTION_RESCALING_THRESHOLD - 1. Since the
-     * interval [ FRACTION_RESCALING_THRESHOLD - 1, FRACTION_RESCALING_THRESHOLD)
-     * contains no representable numbers if FRACTION_RESCALING_THRESHOLD is
-     * large enough, no check for | f_r + f_2 | >= FRACTION_RESCALING_THRESHOLD
-     * is necessary.
+    /* Set f_2 to the fraction of the value with the smaller exponent.
+     * Since the absolute difference between the two exponents is *finite* here
+     * (FRACTION_RESCALING_THRESHOLD_LOG2 to be precise), both fractions are
+     * guaranteed to be finite and non-zero (and of course normalized).
      */
     const __m128d f_2 = _mm_blendv_pd(f_b, f_a, e_d);
-    f_r = _mm_add_sd(f_r, _mm_mul_sd(f_2, TH_INV));
+    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) >= 1.0);
+    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) < FRACTION_RESCALING_THRESHOLD);
+    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_2)) >= 1.0);
+    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_2)) < FRACTION_RESCALING_THRESHOLD);
+
+    /* Multiply f_2 with FRACTION_RESCALING_THRESHOLD_INV to bring it to the same
+     * scale as f_r (i.e, they'd now both have exponent e_r) and add the
+     * fractions. Multiplying f_r can be done by simply adding to it's native
+     * exponent, since f_r is surely non-zero (see above) and finite.
+     */
+    f_r = _mm_add_sd(_mm_castsi128_pd(_mm_sub_epi16(_mm_castpd_si128(f_2),
+                                                    TH_LOG2_IEEE754_EXP)),
+                     f_r);
+
+    /* |f_r| lay in the range [ 1, FRACTION_RESCALING_THRESHOLD ) and the scaled
+     * |f_2| in the range [ FRACTION_RESCALING_THRESHOLD_INV, 1.0 ). Thus, for
+     * the sum to exceed FRACTION_RESCALING_THRESHOLD, |f_r| would need to
+     * exceed FRACTION_RESCALING_THRESHOLD - 1. But since the threshold is chosen
+     * to be larger than 2^IEEE754_DOUBLE_MAN_BITS, this is only possible if
+     * already |f_r| >= FRACTION_RESCALING_THRESHOLD, which is impossible.
+     * It is therefore not necessary to check for an overflowed fraction here.
+     */
     const __m128d f_r_abs = mm_abs_sd(f_r);
     ED_ASSERT_NORMALIZATION(_mm_cvtsd_f64(f_r_abs) < FRACTION_RESCALING_THRESHOLD);
-
 
      /* A check for | f_r + f_2 | < 1.0 *is* necessary, but for similar reasons
       * as above, | f_r + f_2 | >= 2^-IEEE754_DOUBLE_MAN_BITS. Thus, a single
@@ -192,7 +207,8 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     if (_mm_ucomilt_sd(f_r_abs, _mm_set_sd(1.0))) {
         /* Rescale one if necessary to normalize the result. See above. */
         e_r = _mm_sub_sd(e_r, TH_LOG2);
-        f_r = _mm_mul_sd(f_r, TH);
+        f_r = _mm_castsi128_pd(_mm_add_epi16(_mm_castpd_si128(f_r),
+                                             TH_LOG2_IEEE754_EXP)),
         ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) >= 1.0);
     }
 
