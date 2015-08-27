@@ -343,8 +343,7 @@ private:
 	ED_ALWAYS_INLINE
 	void set_exponent(double exponent) {
 #if ED_ENABLE_SSE
-		const __m128d m =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
-		m_exponent_raw = _mm_cvtsd_f64(_mm_xor_pd(_mm_set_sd(exponent), m));
+		m_exponent_raw = _mm_cvtsd_f64(mm_exponent_mask_pd(_mm_set_sd(exponent)));
 #else
 		ieee754_double_t v;
 		v.as_double = exponent;
@@ -360,8 +359,7 @@ private:
 
 #if ED_ENABLE_SSE
 	ED_ALWAYS_INLINE __m128d exponent_m128d() const {
-		const __m128d M =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
-		return _mm_xor_pd(_mm_load_sd(&m_exponent_raw), M);
+		return mm_exponent_mask_pd(_mm_load_sd(&m_exponent_raw));
 	}
 
 	ED_ALWAYS_INLINE __m128d fraction_m128d() const {
@@ -371,8 +369,16 @@ private:
 	template<int I> ED_ALWAYS_INLINE
 	void set_exponent(__m128d exponent) {
 		ED_ASSERT_STATIC((I == 0) || (I == 1));
-		const __m128d M =  _mm_load_sd(reinterpret_cast<const double*>(&EXPONENT_MASK));
-		const __m128d exponent_raw = _mm_xor_pd(exponent, M);
+		const __m128d exponent_raw = mm_exponent_mask_pd(exponent);
+		if (I == 0)
+			_mm_store_sd(&m_exponent_raw, exponent_raw);
+		else
+			_mm_storeh_pd(&m_exponent_raw, exponent_raw);
+	}
+
+	template<int I> ED_ALWAYS_INLINE
+	void set_exponent_raw(__m128d exponent_raw) {
+		ED_ASSERT_STATIC((I == 0) || (I == 1));
 		if (I == 0)
 			_mm_store_sd(&m_exponent_raw, exponent_raw);
 		else
@@ -386,6 +392,11 @@ private:
 			_mm_store_sd(&m_fraction, fraction);
 		else
 			_mm_storeh_pd(&m_fraction, fraction);
+	}
+
+	ED_ALWAYS_INLINE static __m128d mm_exponent_mask_pd(const __m128d e) {
+		const __m128d M = _mm_set1_pd(-std::numeric_limits<double>::infinity());
+		return _mm_xor_pd(e, M);
 	}
 
 	ED_ALWAYS_INLINE static __m128d mm_abs_sd(const __m128d v) {
