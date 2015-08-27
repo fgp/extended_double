@@ -151,7 +151,7 @@ struct extended_double {
 			const __m128i f_r_cmp = _mm_add_epi16(_mm_castpd_si128(f_r),
 												  IEEE754_CMP_ADJ);
 			if (!_mm_test_all_zeros(f_r_cmp, IEEE754_CMP_MASK))
-				normalize_sum_uniform_exponents();
+				normalize_sum_uniform_exponents_slowpath();
 		}
 		else
 			add_nonuniform_exponents_slowpath(v);
@@ -161,7 +161,7 @@ struct extended_double {
 			const double f_abs = std::fabs(fraction());
 			if ((f_abs >= FRACTION_RESCALING_THRESHOLD)
 			    || (f_abs < 1.0))
-				normalize_sum_uniform_exponents();
+				normalize_sum_uniform_exponents_slowpath();
 		}
 		else
 			add_nonuniform_exponents_slowpath(v);
@@ -458,7 +458,7 @@ private:
 
 	void normalize_slowpath();
 
-	void normalize_sum_uniform_exponents();
+	void normalize_sum_uniform_exponents_slowpath();
 
     void add_nonuniform_exponents_slowpath(const extended_double& v);
     

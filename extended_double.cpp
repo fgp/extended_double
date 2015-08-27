@@ -99,9 +99,28 @@ extended_double::normalize_slowpath()
 #if ED_ENABLE_SSE
 
 void
-extended_double::normalize_sum_uniform_exponents() {
-    // XXX: We can do better!
-    normalize_slowpath();
+extended_double::normalize_sum_uniform_exponents_slowpath() {
+    const __m128d TH = _mm_set_sd(FRACTION_RESCALING_THRESHOLD);
+    const __m128d TH_INV = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_INV);
+    const __m128d TH_LOG2 = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_LOG2);
+    const __m128d TH_INV_LOG2 = _mm_set_sd(-FRACTION_RESCALING_THRESHOLD_LOG2);
+
+    ED_ASSERT_NORMALIZATION((std::fabs(fraction()) < 1.0)
+                            || (std::fabs(fraction()) >= FRACTION_RESCALING_THRESHOLD));
+    const __m128d f = fraction_m128d();
+    const __m128d f_abs = mm_abs_sd(f);
+    const __m128d s_up = _mm_cmplt_sd(f_abs, TH);
+    const __m128d f_neq0 = _mm_cmpneq_sd(f, _mm_setzero_pd());
+
+    const __m128d s = _mm_blendv_pd(TH_INV, TH, s_up);
+    const __m128d d = _mm_blendv_pd(TH_LOG2, TH_INV_LOG2, s_up);
+
+    const __m128d fp = _mm_mul_sd(f, s);
+    set_fraction<0>(fp);
+
+    const __m128d ep = _mm_add_sd(exponent_m128d(), d);
+    const __m128d ep_raw = _mm_and_pd(mm_exponent_mask_pd(ep), f_neq0);
+    set_exponent_raw<0>(ep_raw);
 }
 
 void
@@ -225,7 +244,7 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 #else // !ED_ENABLE_SSE
 
 void
-extended_double::normalize_sum_uniform_exponents() {
+extended_double::normalize_sum_uniform_exponents_slowpath() {
     // XXX: We can do better!
     normalize_slowpath();
 }
