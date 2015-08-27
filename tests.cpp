@@ -96,6 +96,11 @@ namespace {
     }
 }
 
+#define BOOST_CHECK_ED_IDENTICAL(x, y) \
+    BOOST_CHECK_PREDICATE(is_identical<extended_double>, (x)(y))
+#define BOOST_CHECK_ED_NOT_IDENTICAL(x, y) \
+    BOOST_CHECK_PREDICATE(is_not_identical<extended_double>, (x)(y))
+
 BOOST_AUTO_TEST_CASE(zeros) {
     extended_double v0;
     BOOST_CHECK_EQUAL(v0, extended_double(0.0));
@@ -107,37 +112,67 @@ BOOST_AUTO_TEST_CASE(zeros) {
     
     extended_double v0m(-0.0);
     BOOST_CHECK_EQUAL(v0m, v0);
-//    BOOST_CHECK_PREDICATE(is_not_identical, (v0)(v0m) );
+    BOOST_CHECK_ED_NOT_IDENTICAL(v0, v0m);
+    BOOST_CHECK_ED_IDENTICAL(-v0, v0m);
+    BOOST_CHECK_ED_IDENTICAL(-v0m, v0);
+
+    BOOST_CHECK_ED_IDENTICAL(v0 + v0, v0);
+    BOOST_CHECK_ED_IDENTICAL(v0 + v0m, v0);
+    BOOST_CHECK_ED_IDENTICAL(v0m + v0, v0);
+
+    BOOST_CHECK_ED_IDENTICAL(v0m + v0m, v0m);
+    BOOST_CHECK_ED_IDENTICAL(v0m - v0, v0m);
 
     const double fractions[] = { -firstbefore(2.0), -1.9, -1.0 - 1.0/M_PI,
-        -1.0, nextafter(1.0), 1.1, 1.0 + 1.0/M_PI, 1.9,
-        firstbefore(2.0) };
-    
+                                 -1.0, nextafter(1.0), 1.1, 1.0 + 1.0/M_PI, 1.9,
+                                 firstbefore(2.0) };
+
     for(int32_t e = -2048; e <= 2048; ++e) {
         for(int f = 0; f < sizeof(fractions) / sizeof(double); ++f) {
             const extended_double v = fractions[f] * extended_double::pow2(e);
             BOOST_CHECK_NE(v, v0);
             BOOST_CHECK_NE(v, v0m);
             BOOST_CHECK_EQUAL(v / fractions[f], extended_double::pow2(e));
-            
-            BOOST_CHECK_EQUAL(v * v0, (v >= 0.0) ? v0 : v0m);
+
+            /* Operations with positive zero */
+
+            BOOST_CHECK_EQUAL(v * v0, v0);
+            BOOST_CHECK_EQUAL(v * v0, v0m);
+            BOOST_CHECK_ED_IDENTICAL(v * v0, (v >= 0.0) ? v0 : v0m);
+
             BOOST_CHECK_EQUAL(v / v0, fractions[f] * std::numeric_limits<double>::infinity());
             BOOST_CHECK_EQUAL(v + v0, v);
             BOOST_CHECK_EQUAL(v - v0, v);
             
-            BOOST_CHECK_EQUAL(v0 * v, (v >= 0.0) ? v0m : v0);
-            BOOST_CHECK_EQUAL(v0 / v, (v >= 0.0) ? v0m : v0);
+            BOOST_CHECK_EQUAL(v0 * v, v0);
+            BOOST_CHECK_EQUAL(v0 * v, v0m);
+            BOOST_CHECK_ED_IDENTICAL(v0 * v, (v >= 0.0) ? v0 : v0m);
+
+            BOOST_CHECK_EQUAL(v0 / v, v0);
+            BOOST_CHECK_EQUAL(v0 / v, v0m);
+            BOOST_CHECK_ED_IDENTICAL(v0 / v, (v >= 0.0) ? v0 : v0m);
+
             BOOST_CHECK_EQUAL(v0 + v, v);
             BOOST_CHECK_EQUAL(v0 - v, -v);
-            
-            BOOST_CHECK_EQUAL(v * v0m, (v >= 0.0) ? v0m : v0);
-            /* XXX: Why does this fail?? */
-//            BOOST_CHECK_EQUAL(v / v0m, -1.0 * fractions[f] * std::numeric_limits<double>::infinity());
+
+            /* Operations with negative zero */
+
+            BOOST_CHECK_EQUAL(v * v0m, v0);
+            BOOST_CHECK_EQUAL(v * v0m, v0m);
+            BOOST_CHECK_ED_IDENTICAL(v * v0m, (v >= 0.0) ? v0m : v0);
+
+            BOOST_CHECK_EQUAL(v / v0m, -fractions[f] * std::numeric_limits<double>::infinity());
             BOOST_CHECK_EQUAL(v + v0m, v);
             BOOST_CHECK_EQUAL(v - v0m, v);
-            
-            BOOST_CHECK_EQUAL(v0m * v, (v >= 0.0) ? v0m : v0);
-            BOOST_CHECK_EQUAL(v0m / v, (v >= 0.0) ? v0m : v0);
+
+            BOOST_CHECK_EQUAL(v0m * v, v0);
+            BOOST_CHECK_EQUAL(v0m * v, v0m);
+            BOOST_CHECK_ED_IDENTICAL(v0m * v, (v >= 0.0) ? v0m : v0);
+
+            BOOST_CHECK_EQUAL(v0m / v, v0);
+            BOOST_CHECK_EQUAL(v0m / v, v0m);
+            BOOST_CHECK_ED_IDENTICAL(v0m / v, (v >= 0.0) ? v0m : v0);
+
             BOOST_CHECK_EQUAL(v0m + v, v);
             BOOST_CHECK_EQUAL(v0m - v, -v);
         }

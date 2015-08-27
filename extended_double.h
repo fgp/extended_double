@@ -353,6 +353,11 @@ private:
 	}
 
 	ED_ALWAYS_INLINE
+	void set_exponent_raw(double exponent) {
+		m_exponent_raw = exponent;
+	}
+
+	ED_ALWAYS_INLINE
 	void set_fraction(double fraction) {
 		m_fraction = fraction;
 	}

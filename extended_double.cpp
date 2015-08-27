@@ -67,8 +67,12 @@ extended_double::normalize_slowpath()
     const uint32_t f_e_raw = f.as_fields.exponent;
 
     if (f_e_raw == 0) {
-        /* Fraction is zero (or denormalized) */
-        *this = extended_double();
+        /* Fraction is zero (or denormalized).
+         * Make sure the fraction is zero, but keep the sign. Exponent is
+         * set to -infinity (raw value 0)
+         */
+        set_fraction(fraction() * 0.0);
+        set_exponent_raw(0.0);
     }
     else if (f_e_raw != IEEE754_DOUBLE_EXP_INF_RAW) {
         /* Fraction is non-zero and finite */
