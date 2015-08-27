@@ -126,6 +126,9 @@ struct extended_double {
 #endif
 	}
 
+	/**
+	 * Assigns a double value to an extended_double
+	 */
 	ED_ALWAYS_INLINE
 	extended_double& operator=(double v) {
 		*this = extended_double(v);
@@ -363,14 +366,23 @@ private:
 	}
 
 #if ED_ENABLE_SSE
+	/**
+	 * Returns exponent in the low double of a __m128d SSE vector
+	 */
 	ED_ALWAYS_INLINE __m128d exponent_m128d() const {
 		return mm_exponent_mask_pd(_mm_load_sd(&m_exponent_raw));
 	}
 
+	/**
+	 * Returns fraction in the low double of a __m128d SSE vector
+	 */
 	ED_ALWAYS_INLINE __m128d fraction_m128d() const {
 		return _mm_load_sd(&m_fraction);
 	}
 
+	/**
+	 * Sets exponent to low (I==0) or high (I==1) double in __m128d SSE vector.
+	 */
 	template<int I> ED_ALWAYS_INLINE
 	void set_exponent(__m128d exponent) {
 		ED_ASSERT_STATIC((I == 0) || (I == 1));
@@ -381,6 +393,9 @@ private:
 			_mm_storeh_pd(&m_exponent_raw, exponent_raw);
 	}
 
+	/**
+	 * Sets raw exponent to low (I==0) or high (I==1) double in __m128d SSE vector.
+	 */
 	template<int I> ED_ALWAYS_INLINE
 	void set_exponent_raw(__m128d exponent_raw) {
 		ED_ASSERT_STATIC((I == 0) || (I == 1));
@@ -390,6 +405,9 @@ private:
 			_mm_storeh_pd(&m_exponent_raw, exponent_raw);
 	}
 
+	/**
+	 * Sets fraction to low (I==0) or high (I==1) double in __m128d SSE vector.
+	 */
 	template<int I> ED_ALWAYS_INLINE
 	void set_fraction(__m128d fraction) {
 		ED_ASSERT_STATIC((I == 0) || (I == 1));
@@ -399,11 +417,20 @@ private:
 			_mm_storeh_pd(&m_fraction, fraction);
 	}
 
+	/**
+	 * Transforms raw to logical exponent and vice versa.
+	 *
+	 * This is used to ensure that an all-zero extended_double represents
+	 * value 0, which requires the logical exponent to be -infinity.
+	 */
 	ED_ALWAYS_INLINE static __m128d mm_exponent_mask_pd(const __m128d e) {
 		const __m128d M = _mm_set1_pd(-std::numeric_limits<double>::infinity());
 		return _mm_xor_pd(e, M);
 	}
 
+	/**
+	 * Returns the element-wise absolute value of an __m128d SSE vector
+	 */
 	ED_ALWAYS_INLINE static __m128d mm_abs_sd(const __m128d v) {
 		const __m128d M = _mm_set_sd(-0.0);
 		return _mm_andnot_pd(M, v);
@@ -411,13 +438,24 @@ private:
 #endif
 
 #ifndef NDEBUG
+	/**
+	 * Allows the logical exponent to be easy retrieved in GDB.
+	 */
     double get_exponent();
 #endif
-    
+
+	/**
+	 * Returns true if the two values have the same exponent.
+	 *
+	 * Note that for NaN values, the result may either be true or false,
+	 * depending on whether SSE is enabled, and on whether both NaN are
+	 * represented by exactly the same bit pattern.
+	 */
     ED_ALWAYS_INLINE
     static bool
     are_exponents_uniform(const extended_double& a, const extended_double& b) {
 #if ED_ENABLE_SSE
+		/* The bitwise comparison has indeterminate result for NaN exponents! */
         const __m128d a_e = _mm_set_sd(a.m_exponent_raw);
         const __m128d b_e = _mm_set_sd(b.m_exponent_raw);
         const __m128i eq = _mm_castpd_si128(_mm_xor_pd(a_e, b_e));
@@ -433,6 +471,13 @@ private:
 #endif
     }
 
+	/**
+	 * Make sure the two values have the same exponent while retaining their
+	 * numerical value (as far as possible).
+	 *
+	 * The smaller (absolute) value may be rounded down to zero, if the
+	 * exponent difference is large.
+	 */
     ED_ALWAYS_INLINE
     static void make_exponents_uniform(extended_double& a, extended_double& b) {
         if (!are_exponents_uniform(a, b))
