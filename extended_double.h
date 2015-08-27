@@ -137,38 +137,51 @@ struct extended_double {
 
 	ED_ALWAYS_INLINE
 	extended_double& operator+=(const extended_double& v) {
+		/* If exponents are equal, fractions are added and the sum renormalized,
+		 * Otherwise, add_nonuniform_exponents_slowpath() rescales the fractions
+		 * as necessary, adds, and normalizes.
+		 *
+		 * Exponents are tested for bitwise equality. This means that for NaN,
+		 * both code paths could be taken, since multiple bit-patters mean NaN!
+		 * Note that the exponent musn't be -0.0 (+0.0 is of course allowed!),
+		 * otherwise we might call normalize_sum_uniform_exponents_slowpath()
+		 * when the exponents are actually the same, which is doesn't handle!
+		 */
+		if (are_exponents_uniform(*this, v)) {
 #if ED_ENABLE_SSE
-		const __m128i IEEE754_CMP_ADJ = _mm_set_epi64x(
-				0, (int64_t(0x401) << IEEE754_DOUBLE_MAN_BITS));
-		const __m128i IEEE754_CMP_MASK = _mm_set_epi64x(
-				0, (int64_t(0x600) << IEEE754_DOUBLE_MAN_BITS));
-
-		const __m128d e_a_raw = _mm_set_sd(m_exponent_raw);
-		const __m128d e_b_raw = _mm_set_sd(v.m_exponent_raw);
-		const __m128i eq = _mm_castpd_si128(_mm_xor_pd(e_a_raw, e_b_raw));
-		if(_mm_test_all_zeros(eq, eq)) {
+			/* Sum fractions */
 			const __m128d f_a = _mm_set_sd(m_fraction);
 			const __m128d f_b = _mm_set_sd(v.m_fraction);
 			const __m128d f_r = _mm_add_sd(f_a, f_b);
 			set_fraction<0>(f_r);
+
+			/* Handle over- or underflowed fraction.
+			 * Adding 0x401 to the fraction's native exponent maps native
+			 * exponents within [0, 511] to bit patterns 00xxxxxxxxx. The
+			 * mask of 0x600 = 11000000000 ensures that only the leading bits
+			 * are tested.
+			 */
+			const __m128i IEEE754_CMP_ADJ = _mm_set_epi64x(
+					0, (int64_t(0x401) << IEEE754_DOUBLE_MAN_BITS));
+			const __m128i IEEE754_CMP_MASK = _mm_set_epi64x(
+					0, (int64_t(0x600) << IEEE754_DOUBLE_MAN_BITS));
 			const __m128i f_r_cmp = _mm_add_epi16(_mm_castpd_si128(f_r),
 												  IEEE754_CMP_ADJ);
 			if (!_mm_test_all_zeros(f_r_cmp, IEEE754_CMP_MASK))
 				normalize_sum_uniform_exponents_slowpath();
-		}
-		else
-			add_nonuniform_exponents_slowpath(v);
 #else
-		if (are_exponents_uniform(*this, v)) {
+			/* Sum fractions */
 			set_fraction(fraction() + v.fraction());
 			const double f_abs = std::fabs(fraction());
+
+			/* Handle over- or underflowed fraction */
 			if ((f_abs >= FRACTION_RESCALING_THRESHOLD)
 			    || (f_abs < 1.0))
 				normalize_sum_uniform_exponents_slowpath();
+#endif
 		}
 		else
 			add_nonuniform_exponents_slowpath(v);
-#endif
 
 		check_consistency();
         return *this;
