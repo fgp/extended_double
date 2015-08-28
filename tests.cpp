@@ -30,11 +30,38 @@ namespace {
         --t.as_uint64;
         return t.as_double;
     }
+
+    template<typename T>
+    bool is_identical(const T& a, const T& b) {
+        return !std::memcmp(&a, &b, sizeof(T));
+    }
+
+    template<typename T>
+    bool is_not_identical(const T& a, const T& b) {
+        return std::memcmp(&a, &b, sizeof(T));
+    }
 }
 
-BOOST_AUTO_TEST_CASE(defines) {
+#define BOOST_CHECK_ED_IDENTICAL(x, y) \
+BOOST_CHECK_PREDICATE(is_identical<extended_double>, (x)(y))
+#define BOOST_CHECK_ED_NOT_IDENTICAL(x, y) \
+BOOST_CHECK_PREDICATE(is_not_identical<extended_double>, (x)(y))
+
+BOOST_AUTO_TEST_CASE(asserts_enabled_normalization) {
     BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_NORMALIZATION, 1);
+#ifdef NDEBUG
+    const bool ndebug = true;
+#else
+    const bool ndebug = false;
+#endif
+    BOOST_CHECK_EQUAL(ndebug, false);
+}
+
+BOOST_AUTO_TEST_CASE(asserts_enabled_static) {
     BOOST_CHECK_EQUAL(ED_ENABLE_ASSERTS_STATIC, 1);
+}
+
+BOOST_AUTO_TEST_CASE(print_sse_status) {
     std::cerr << "Using SSE: ";
 #if ED_ENABLE_SSE
     std::cerr << "Yes";
@@ -43,12 +70,6 @@ BOOST_AUTO_TEST_CASE(defines) {
 #endif
     std::cerr << std::endl;
 }
-
-#ifdef NDEBUG
-BOOST_AUTO_TEST_CASE(ndebug_not_set) {
-    BOOST_CHECK(false);
-}
-#endif
 
 BOOST_AUTO_TEST_CASE(conversions) {
     const double fractions[] = { -firstbefore(2.0), -1.9, -1.0 - 1.0/M_PI,
@@ -83,23 +104,6 @@ BOOST_AUTO_TEST_CASE(conversions) {
         }
     }
 }
-
-namespace {
-    template<typename T>
-    bool is_identical(const T& a, const T& b) {
-        return !std::memcmp(&a, &b, sizeof(T));
-    }
-    
-    template<typename T>
-    bool is_not_identical(const T& a, const T& b) {
-        return std::memcmp(&a, &b, sizeof(T));
-    }
-}
-
-#define BOOST_CHECK_ED_IDENTICAL(x, y) \
-    BOOST_CHECK_PREDICATE(is_identical<extended_double>, (x)(y))
-#define BOOST_CHECK_ED_NOT_IDENTICAL(x, y) \
-    BOOST_CHECK_PREDICATE(is_not_identical<extended_double>, (x)(y))
 
 BOOST_AUTO_TEST_CASE(zeros) {
     extended_double v0;
