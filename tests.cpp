@@ -520,12 +520,16 @@ BOOST_AUTO_TEST_CASE(nans) {
 }
 
 BOOST_AUTO_TEST_CASE(arithmetic) {
-    const int64_t exponents[] = { -0x100000000, -1500, -1, 0, 1500, 0x100000000 };
+    const int64_t exponents[] = { -0x100000000, -1500, -512, -511,
+                                  -1, 0, 511, 512, 1500, 0x100000000 };
     const double fractions[] = {
+        -firstbefore(extended_double::FRACTION_RESCALING_THRESHOLD),
         -extended_double::FRACTION_RESCALING_THRESHOLD/2.0,
-        nextafter(2.0), -firstbefore(2.0), -1.0 - 1.0/M_PI, nextafter(-1.0), -1.0, firstbefore(-1.0),
-        firstbefore(1.0), 1.0, nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0), nextafter(2.0),
-        extended_double::FRACTION_RESCALING_THRESHOLD/2.0
+        nextafter(2.0), -firstbefore(2.0), -1.0 - 1.0/M_PI, nextafter(-1.0),
+        -1.0, firstbefore(-1.0), firstbefore(1.0), 1.0,
+        nextafter(1.0), 1.0 + 1.0/M_PI, firstbefore(2.0), nextafter(2.0),
+        extended_double::FRACTION_RESCALING_THRESHOLD/2.0,
+        firstbefore(extended_double::FRACTION_RESCALING_THRESHOLD),
     };
     
     for(int e1_i = 0; e1_i < sizeof(exponents) / sizeof(int64_t); ++e1_i) {
