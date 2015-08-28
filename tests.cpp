@@ -285,6 +285,28 @@ BOOST_AUTO_TEST_CASE(infinities) {
     BOOST_CHECK_EQUAL(v_pinf, v_ninf / -v_large);
 }
 
+BOOST_AUTO_TEST_CASE(nans) {
+    const extended_double v_qnan(std::numeric_limits<double>::quiet_NaN());
+    const extended_double v_snan(std::numeric_limits<double>::signaling_NaN());
+    BOOST_CHECK(std::isnan(extended_double_cast<double>(v_qnan)));
+    BOOST_CHECK(std::isnan(extended_double_cast<double>(v_snan)));
+
+    BOOST_CHECK(isnan(v_qnan + v_qnan));
+    BOOST_CHECK(isnan(v_qnan - v_qnan));
+    BOOST_CHECK(isnan(v_qnan * v_qnan));
+    BOOST_CHECK(isnan(v_qnan / v_qnan));
+
+    BOOST_CHECK(isnan(v_snan + v_qnan));
+    BOOST_CHECK(isnan(v_snan - v_qnan));
+    BOOST_CHECK(isnan(v_snan * v_qnan));
+    BOOST_CHECK(isnan(v_snan / v_qnan));
+
+    BOOST_CHECK(isnan(v_qnan + v_snan));
+    BOOST_CHECK(isnan(v_qnan - v_snan));
+    BOOST_CHECK(isnan(v_qnan * v_snan));
+    BOOST_CHECK(isnan(v_qnan / v_snan));
+}
+
 BOOST_AUTO_TEST_CASE(arithmetic) {
     const int64_t exponents[] = { -0x100000000, -1500, -1, 0, 1500, 0x100000000 };
     const double fractions[] = {

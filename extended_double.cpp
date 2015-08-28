@@ -49,10 +49,21 @@ extended_double::convert_to_double() const
 {
     ieee754_double_t r;
     r.as_double = m_fraction;
+
+    /* Get fraction's native exponent */
     const int32_t f_e = int32_t(r.as_fields.exponent) -int32_t(IEEE754_DOUBLE_EXP_EXCESS);
-    const double f_ep = std::max(std::min(exponent() + double(f_e),
-                                          double(IEEE754_DOUBLE_EXP_EXCESS+1)),
-                                 double(-int32_t(IEEE754_DOUBLE_EXP_EXCESS)));
+
+    /* Add explicit exponent to fraction's native exponent.
+     * Order of ops carefully chosen so that NaN gets turned into largest value
+     */
+    const double f_ep = std::min(double(IEEE754_DOUBLE_EXP_EXCESS+1),
+                                 std::max(exponent() + double(f_e),
+                                          double(-int32_t(IEEE754_DOUBLE_EXP_EXCESS))));
+    ED_ASSERT_NORMALIZATION(!std::isnan(f_ep));
+    ED_ASSERT_NORMALIZATION(!std::isnan(m_fraction) ||
+                            (f_ep == IEEE754_DOUBLE_EXP_EXCESS+1));
+
+    /* Update fraction's native exponent */
     r.as_fields.exponent = uint32_t(int32_t(f_ep) + int32_t(IEEE754_DOUBLE_EXP_EXCESS));
     return r.as_double;
 }
@@ -109,8 +120,8 @@ extended_double::normalize_sum_uniform_exponents_slowpath() {
     const __m128d TH_LOG2 = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_LOG2);
     const __m128d TH_INV_LOG2 = _mm_set_sd(-FRACTION_RESCALING_THRESHOLD_LOG2);
 
-    ED_ASSERT_NORMALIZATION((std::fabs(fraction()) < 1.0)
-                            || (std::fabs(fraction()) >= FRACTION_RESCALING_THRESHOLD));
+    ED_ASSERT_NORMALIZATION(!((std::fabs(fraction()) >= 1.0)
+                              && (std::fabs(fraction()) < FRACTION_RESCALING_THRESHOLD)));
     const __m128d f = fraction_m128d();
     const __m128d f_abs = mm_abs_sd(f);
     const __m128d s_up = _mm_cmplt_sd(f_abs, TH);
@@ -181,17 +192,26 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     const __m128d e_b = v.exponent_m128d();
     const __m128d f_b = v.fraction_m128d();
     const __m128d e_d = _mm_sub_sd(e_a, e_b);
-    ED_ASSERT_NORMALIZATION(_mm_cvtsd_f64(e_d) != 0.0);
 
     /* Set e_r to the larger exponent and f_r to the corresponding fraction
      * If the smaller exponent is more than one rescaling threshold less
      * than the larger one, the sum of the two values is (after rounding)
      * the same as the larger value, and we're done.
+     *
+     * We want the if-branch to be taken if e_d_abs is NaN or not equal to
+     * TH_LOG2. In theory, !_mm_ucomieq(e_d_abs, TH_LOG2) ought to achieve
+     * that, but at least with GCC is doesn't. UCOMISD sets the ZF flags if
+     * either both operands are equal, or if one of them is NaN. GCC enters the
+     * if-branch with JNE, thus branching only if the values are not equal and
+     * neither is NaN. With the operands casted back to double, OTOH, GCC
+     * correctly enters the if-branch with both JNE and JP, thus branching also
+     * if either value is NaN (in which case UCOMISD sets the PF flag).
      */
     const __m128d e_d_abs = mm_abs_sd(e_d);
+    ED_ASSERT_NORMALIZATION(!(_mm_cvtsd_f64(e_d_abs) < FRACTION_RESCALING_THRESHOLD_LOG2));
     __m128d e_r = _mm_max_sd(e_a, e_b);
     __m128d f_r = _mm_blendv_pd(f_a, f_b, e_d);
-    if (!_mm_ucomieq_sd(e_d_abs, TH_LOG2)) {
+    if (!(_mm_cvtsd_f64(e_d_abs) == _mm_cvtsd_f64(TH_LOG2))) {
         set_exponent<0>(e_r);
         set_fraction<0>(f_r);
         return;

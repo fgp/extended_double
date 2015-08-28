@@ -91,8 +91,9 @@ struct extended_double {
 	{
 		set_exponent(0);
         const double f = std::fabs(m_fraction);
-        if ((f < 1.0) ||
-            (f >= FRACTION_RESCALING_THRESHOLD))
+		/* The weird double-negation ensures that the test succeeds for NaN */
+        if (!((f >= 1.0) &&
+              (f < FRACTION_RESCALING_THRESHOLD)))
             normalize_slowpath();
 		check_consistency();
 	}
@@ -618,6 +619,11 @@ double extended_double_cast<double>(const extended_double& v) {
 ED_ALWAYS_INLINE
 bool isfinite(const extended_double& v) {
 	return std::isfinite(v.fraction());
+}
+
+ED_ALWAYS_INLINE
+bool isnan(const extended_double& v) {
+	return std::isnan(v.fraction());
 }
 
 #endif
