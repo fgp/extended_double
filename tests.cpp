@@ -590,8 +590,7 @@ BOOST_AUTO_TEST_CASE(arithmetic) {
     }
 }
 
-BOOST_AUTO_TEST_CASE(basic)
-{
+BOOST_AUTO_TEST_CASE(basic) {
 	extended_double v0;
 	BOOST_CHECK(v0 == extended_double(0.0));
 	std::memset(&v0, 0, sizeof(v0));
