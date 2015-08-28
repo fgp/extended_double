@@ -290,8 +290,8 @@ BOOST_AUTO_TEST_CASE(arithmetic) {
         extended_double::FRACTION_RESCALING_THRESHOLD/2.0
     };
     
-    for(int e1_i = 0; e1_i <= sizeof(exponents) / sizeof(int64_t); ++e1_i) {
-        for(int e2_i = 0; e2_i <= sizeof(exponents) / sizeof(int64_t); ++e2_i) {
+    for(int e1_i = 0; e1_i < sizeof(exponents) / sizeof(int64_t); ++e1_i) {
+        for(int e2_i = 0; e2_i < sizeof(exponents) / sizeof(int64_t); ++e2_i) {
             const int64_t e1_1 = exponents[e1_i];
             const int64_t e2_1 = exponents[e1_i];
             for(int e1_2 = 0; e1_2 <= 513; e1_2 += 57) {
