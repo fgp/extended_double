@@ -192,9 +192,14 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     const __m128d e_b = v.exponent_m128d();
     const __m128d f_b = v.fraction_m128d();
     const __m128d e_d = _mm_sub_sd(e_a, e_b);
+    const __m128d e_d_abs = mm_abs_sd(e_d);
+    ED_ASSERT_NORMALIZATION(!(_mm_cvtsd_f64(e_d_abs) < FRACTION_RESCALING_THRESHOLD_LOG2));
 
-    /* Set e_r to the larger exponent and f_r to the corresponding fraction
-     * If the smaller exponent is more than one rescaling threshold less
+    /* Set e_r to the larger exponent and f_r to the corresponding fraction */
+    __m128d e_r = _mm_max_sd(e_a, e_b);
+    __m128d f_r = _mm_blendv_pd(f_a, f_b, e_d);
+    
+    /* If the smaller exponent is more than one rescaling threshold less
      * than the larger one, the sum of the two values is (after rounding)
      * the same as the larger value, and we're done.
      *
@@ -207,10 +212,6 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
      * correctly enters the if-branch with both JNE and JP, thus branching also
      * if either value is NaN (in which case UCOMISD sets the PF flag).
      */
-    const __m128d e_d_abs = mm_abs_sd(e_d);
-    ED_ASSERT_NORMALIZATION(!(_mm_cvtsd_f64(e_d_abs) < FRACTION_RESCALING_THRESHOLD_LOG2));
-    __m128d e_r = _mm_max_sd(e_a, e_b);
-    __m128d f_r = _mm_blendv_pd(f_a, f_b, e_d);
     if (!(_mm_cvtsd_f64(e_d_abs) == _mm_cvtsd_f64(TH_LOG2))) {
         const __m128d e_r_isnan = _mm_cmpunord_sd(e_a, e_b);
         set_exponent<0>(_mm_or_pd(e_r, e_r_isnan));
@@ -224,10 +225,6 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
      * guaranteed to be finite and non-zero (and of course normalized).
      */
     const __m128d f_2 = _mm_blendv_pd(f_b, f_a, e_d);
-    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) >= 1.0);
-    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) < FRACTION_RESCALING_THRESHOLD);
-    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_2)) >= 1.0);
-    ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_2)) < FRACTION_RESCALING_THRESHOLD);
 
     /* Multiply f_2 with FRACTION_RESCALING_THRESHOLD_INV to bring it to the same
      * scale as f_r (i.e, they'd now both have exponent e_r) and add the
@@ -259,7 +256,6 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
         e_r = _mm_sub_sd(e_r, TH_LOG2);
         f_r = _mm_castsi128_pd(_mm_add_epi16(_mm_castpd_si128(f_r),
                                              TH_LOG2_IEEE754_EXP));
-        ED_ASSERT_NORMALIZATION(std::fabs(_mm_cvtsd_f64(f_r)) >= 1.0);
     }
 
     set_exponent<0>(e_r);
