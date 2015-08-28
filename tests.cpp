@@ -353,6 +353,8 @@ BOOST_AUTO_TEST_CASE(nans) {
     BOOST_CHECK(std::isnan(extended_double_cast<double>(v_qnan)));
     BOOST_CHECK(std::isnan(extended_double_cast<double>(v_snan)));
 
+    /* Mixing NaNs */
+    
     BOOST_CHECK(isnan(v_qnan + v_qnan));
     BOOST_CHECK(isnan(v_qnan - v_qnan));
     BOOST_CHECK(isnan(v_qnan * v_qnan));
@@ -380,6 +382,8 @@ BOOST_AUTO_TEST_CASE(nans) {
     const extended_double v_large = extended_double::pow2(1024);
     BOOST_CHECK_EQUAL(log2(v_large), 1024);
 
+    /* Quiet NaN */
+    
     BOOST_CHECK(isnan(v_qnan + v_small));
     BOOST_CHECK(isnan(v_qnan - v_small));
     BOOST_CHECK(isnan(v_qnan + 1e-100));
@@ -445,6 +449,74 @@ BOOST_AUTO_TEST_CASE(nans) {
     BOOST_CHECK(isnan(-1.0 / v_qnan));
     BOOST_CHECK(isnan(-1e100 / v_qnan));
     BOOST_CHECK(isnan(-v_large / v_qnan));
+    
+    /* Signalling NaN */
+    
+    BOOST_CHECK(isnan(v_snan + v_small));
+    BOOST_CHECK(isnan(v_snan - v_small));
+    BOOST_CHECK(isnan(v_snan + 1e-100));
+    BOOST_CHECK(isnan(v_snan - 1e-100));
+    BOOST_CHECK(isnan(v_snan + 1.0));
+    BOOST_CHECK(isnan(v_snan - 1.0));
+    BOOST_CHECK(isnan(v_snan + 1e100));
+    BOOST_CHECK(isnan(v_snan - 1e100));
+    BOOST_CHECK(isnan(v_snan + v_large));
+    BOOST_CHECK(isnan(v_snan - v_large));
+    
+    BOOST_CHECK(isnan(v_snan * v_small));
+    BOOST_CHECK(isnan(v_snan * 1e-100));
+    BOOST_CHECK(isnan(v_snan * 1.0));
+    BOOST_CHECK(isnan(v_snan * 1e100));
+    BOOST_CHECK(isnan(v_snan * v_large));
+    BOOST_CHECK(isnan(v_snan * -v_small));
+    BOOST_CHECK(isnan(v_snan * -1e-100));
+    BOOST_CHECK(isnan(v_snan * -1.0));
+    BOOST_CHECK(isnan(v_snan * -1e100));
+    BOOST_CHECK(isnan(v_snan * -v_large));
+    
+    BOOST_CHECK(isnan(v_snan / v_small));
+    BOOST_CHECK(isnan(v_snan / 1e-100));
+    BOOST_CHECK(isnan(v_snan / 1.0));
+    BOOST_CHECK(isnan(v_snan / 1e100));
+    BOOST_CHECK(isnan(v_snan / v_large));
+    BOOST_CHECK(isnan(v_snan / -v_small));
+    BOOST_CHECK(isnan(v_snan / -1e-100));
+    BOOST_CHECK(isnan(v_snan / -1.0));
+    BOOST_CHECK(isnan(v_snan / -1e100));
+    BOOST_CHECK(isnan(v_snan / -v_large));
+    
+    BOOST_CHECK(isnan(v_small + v_snan));
+    BOOST_CHECK(isnan(v_small - v_snan));
+    BOOST_CHECK(isnan(1e-100 + v_snan));
+    BOOST_CHECK(isnan(1e-100 - v_snan));
+    BOOST_CHECK(isnan(1.0 + v_snan));
+    BOOST_CHECK(isnan(1.0 - v_snan));
+    BOOST_CHECK(isnan(1e100 + v_snan));
+    BOOST_CHECK(isnan(1e100 - v_snan));
+    BOOST_CHECK(isnan(v_large + v_snan));
+    BOOST_CHECK(isnan(v_large - v_snan));
+    
+    BOOST_CHECK(isnan(v_small * v_snan));
+    BOOST_CHECK(isnan(1e-100 * v_snan));
+    BOOST_CHECK(isnan(1.0 * v_snan));
+    BOOST_CHECK(isnan(1e100 * v_snan));
+    BOOST_CHECK(isnan(v_large * v_snan));
+    BOOST_CHECK(isnan(-v_small * v_snan));
+    BOOST_CHECK(isnan(-1e-100 * v_snan));
+    BOOST_CHECK(isnan(-1.0 * v_snan));
+    BOOST_CHECK(isnan(-1e100 * v_snan));
+    BOOST_CHECK(isnan(-v_large * v_snan));
+    
+    BOOST_CHECK(isnan(v_small / v_snan));
+    BOOST_CHECK(isnan(1e-100 / v_snan));
+    BOOST_CHECK(isnan(1.0 / v_snan));
+    BOOST_CHECK(isnan(1e100 / v_snan));
+    BOOST_CHECK(isnan(v_large / v_snan));
+    BOOST_CHECK(isnan(-v_small / v_snan));
+    BOOST_CHECK(isnan(-1e-100 / v_snan));
+    BOOST_CHECK(isnan(-1.0 / v_snan));
+    BOOST_CHECK(isnan(-1e100 / v_snan));
+    BOOST_CHECK(isnan(-v_large / v_snan));
 }
 
 BOOST_AUTO_TEST_CASE(arithmetic) {
