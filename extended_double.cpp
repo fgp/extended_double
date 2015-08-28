@@ -212,8 +212,9 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
     __m128d e_r = _mm_max_sd(e_a, e_b);
     __m128d f_r = _mm_blendv_pd(f_a, f_b, e_d);
     if (!(_mm_cvtsd_f64(e_d_abs) == _mm_cvtsd_f64(TH_LOG2))) {
-        set_exponent<0>(e_r);
-        set_fraction<0>(f_r);
+        const __m128d e_r_isnan = _mm_cmpunord_sd(e_a, e_b);
+        set_exponent<0>(_mm_or_pd(e_r, e_r_isnan));
+        set_fraction<0>(_mm_or_pd(f_r, e_r_isnan));
         return;
     }
 
