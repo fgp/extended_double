@@ -283,6 +283,68 @@ BOOST_AUTO_TEST_CASE(infinities) {
     BOOST_CHECK_EQUAL(v_pinf, v_ninf / -1.0);
     BOOST_CHECK_EQUAL(v_pinf, v_ninf / -1e100);
     BOOST_CHECK_EQUAL(v_pinf, v_ninf / -v_large);
+
+    BOOST_CHECK_EQUAL(v_pinf, v_small + v_pinf);
+    BOOST_CHECK_EQUAL(-v_pinf, v_small - v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, 1e-100 + v_pinf);
+    BOOST_CHECK_EQUAL(-v_pinf, 1e-100 - v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, 1.0 + v_pinf);
+    BOOST_CHECK_EQUAL(-v_pinf, 1.0 - v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, 1e100 + v_pinf);
+    BOOST_CHECK_EQUAL(-v_pinf, 1e100 - v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, v_large + v_pinf);
+    BOOST_CHECK_EQUAL(-v_pinf, v_large - v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, v_pinf + v_pinf);
+    BOOST_CHECK_EQUAL(-v_pinf, v_ninf - v_pinf);
+
+    BOOST_CHECK_EQUAL(v_pinf, v_small * v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, 1e-100 * v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, 1.0 * v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, 1e100 * v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, v_large * v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, v_pinf * v_pinf);
+    BOOST_CHECK_EQUAL(v_ninf, v_small * v_ninf);
+    BOOST_CHECK_EQUAL(v_ninf, 1e-100 * v_ninf);
+    BOOST_CHECK_EQUAL(v_ninf, 1.0 * v_ninf);
+    BOOST_CHECK_EQUAL(v_ninf, 1e100 * v_ninf);
+    BOOST_CHECK_EQUAL(v_ninf, v_large * v_ninf);
+    BOOST_CHECK_EQUAL(v_ninf, v_pinf * v_ninf);
+
+    BOOST_CHECK_EQUAL(v_ninf, -v_small * v_pinf);
+    BOOST_CHECK_EQUAL(v_ninf, -1e-100 * v_pinf);
+    BOOST_CHECK_EQUAL(v_ninf, -1.0 * v_pinf);
+    BOOST_CHECK_EQUAL(v_ninf, -1e100 * v_pinf);
+    BOOST_CHECK_EQUAL(v_ninf, -v_large * v_pinf);
+    BOOST_CHECK_EQUAL(v_ninf, v_ninf * v_pinf);
+    BOOST_CHECK_EQUAL(v_pinf, v_ninf * v_ninf);
+    BOOST_CHECK_EQUAL(v_pinf, -v_small * v_ninf);
+    BOOST_CHECK_EQUAL(v_pinf, -1e-100 * v_ninf);
+    BOOST_CHECK_EQUAL(v_pinf, -1.0 * v_ninf);
+    BOOST_CHECK_EQUAL(v_pinf, -1e100 * v_ninf);
+    BOOST_CHECK_EQUAL(v_pinf, -v_small * v_ninf);
+    BOOST_CHECK_EQUAL(v_pinf, v_ninf * v_ninf);
+
+    BOOST_CHECK_EQUAL(0.0, v_small / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, 1e-100 / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, 1.0 / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, 1e100 / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, v_large / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, 1e-100 / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, v_small / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, 1.0 / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, 1e100 / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, v_small / v_ninf);
+
+    BOOST_CHECK_EQUAL(0.0, -v_small / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, -1e-100 / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, -1.0 / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, -1e100 / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, -v_large / v_pinf);
+    BOOST_CHECK_EQUAL(0.0, -v_small / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, -1e-100 / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, -1.0 / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, -1e100 / v_ninf);
+    BOOST_CHECK_EQUAL(0.0, -v_large / v_ninf);
 }
 
 BOOST_AUTO_TEST_CASE(nans) {
@@ -305,6 +367,84 @@ BOOST_AUTO_TEST_CASE(nans) {
     BOOST_CHECK(isnan(v_qnan - v_snan));
     BOOST_CHECK(isnan(v_qnan * v_snan));
     BOOST_CHECK(isnan(v_qnan / v_snan));
+
+    BOOST_CHECK(isnan(v_snan + v_snan));
+    BOOST_CHECK(isnan(v_snan - v_snan));
+    BOOST_CHECK(isnan(v_snan * v_snan));
+    BOOST_CHECK(isnan(v_snan / v_snan));
+
+    const extended_double v_small = extended_double::pow2(-1024);
+    BOOST_CHECK_NE(v_small, 0.0);
+    BOOST_CHECK_EQUAL(log2(v_small), -1024);
+
+    const extended_double v_large = extended_double::pow2(1024);
+    BOOST_CHECK_EQUAL(log2(v_large), 1024);
+
+    BOOST_CHECK(isnan(v_qnan + v_small));
+    BOOST_CHECK(isnan(v_qnan - v_small));
+    BOOST_CHECK(isnan(v_qnan + 1e-100));
+    BOOST_CHECK(isnan(v_qnan - 1e-100));
+    BOOST_CHECK(isnan(v_qnan + 1.0));
+    BOOST_CHECK(isnan(v_qnan - 1.0));
+    BOOST_CHECK(isnan(v_qnan + 1e100));
+    BOOST_CHECK(isnan(v_qnan - 1e100));
+    BOOST_CHECK(isnan(v_qnan + v_large));
+    BOOST_CHECK(isnan(v_qnan - v_large));
+
+    BOOST_CHECK(isnan(v_qnan * v_small));
+    BOOST_CHECK(isnan(v_qnan * 1e-100));
+    BOOST_CHECK(isnan(v_qnan * 1.0));
+    BOOST_CHECK(isnan(v_qnan * 1e100));
+    BOOST_CHECK(isnan(v_qnan * v_large));
+    BOOST_CHECK(isnan(v_qnan * -v_small));
+    BOOST_CHECK(isnan(v_qnan * -1e-100));
+    BOOST_CHECK(isnan(v_qnan * -1.0));
+    BOOST_CHECK(isnan(v_qnan * -1e100));
+    BOOST_CHECK(isnan(v_qnan * -v_large));
+
+    BOOST_CHECK(isnan(v_qnan / v_small));
+    BOOST_CHECK(isnan(v_qnan / 1e-100));
+    BOOST_CHECK(isnan(v_qnan / 1.0));
+    BOOST_CHECK(isnan(v_qnan / 1e100));
+    BOOST_CHECK(isnan(v_qnan / v_large));
+    BOOST_CHECK(isnan(v_qnan / -v_small));
+    BOOST_CHECK(isnan(v_qnan / -1e-100));
+    BOOST_CHECK(isnan(v_qnan / -1.0));
+    BOOST_CHECK(isnan(v_qnan / -1e100));
+    BOOST_CHECK(isnan(v_qnan / -v_large));
+
+    BOOST_CHECK(isnan(v_small + v_qnan));
+    BOOST_CHECK(isnan(v_small - v_qnan));
+    BOOST_CHECK(isnan(1e-100 + v_qnan));
+    BOOST_CHECK(isnan(1e-100 - v_qnan));
+    BOOST_CHECK(isnan(1.0 + v_qnan));
+    BOOST_CHECK(isnan(1.0 - v_qnan));
+    BOOST_CHECK(isnan(1e100 + v_qnan));
+    BOOST_CHECK(isnan(1e100 - v_qnan));
+    BOOST_CHECK(isnan(v_large + v_qnan));
+    BOOST_CHECK(isnan(v_large - v_qnan));
+
+    BOOST_CHECK(isnan(v_small * v_qnan));
+    BOOST_CHECK(isnan(1e-100 * v_qnan));
+    BOOST_CHECK(isnan(1.0 * v_qnan));
+    BOOST_CHECK(isnan(1e100 * v_qnan));
+    BOOST_CHECK(isnan(v_large * v_qnan));
+    BOOST_CHECK(isnan(-v_small * v_qnan));
+    BOOST_CHECK(isnan(-1e-100 * v_qnan));
+    BOOST_CHECK(isnan(-1.0 * v_qnan));
+    BOOST_CHECK(isnan(-1e100 * v_qnan));
+    BOOST_CHECK(isnan(-v_large * v_qnan));
+
+    BOOST_CHECK(isnan(v_small / v_qnan));
+    BOOST_CHECK(isnan(1e-100 / v_qnan));
+    BOOST_CHECK(isnan(1.0 / v_qnan));
+    BOOST_CHECK(isnan(1e100 / v_qnan));
+    BOOST_CHECK(isnan(v_large / v_qnan));
+    BOOST_CHECK(isnan(-v_small / v_qnan));
+    BOOST_CHECK(isnan(-1e-100 / v_qnan));
+    BOOST_CHECK(isnan(-1.0 / v_qnan));
+    BOOST_CHECK(isnan(-1e100 / v_qnan));
+    BOOST_CHECK(isnan(-v_large / v_qnan));
 }
 
 BOOST_AUTO_TEST_CASE(arithmetic) {
