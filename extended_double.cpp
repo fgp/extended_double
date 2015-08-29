@@ -234,6 +234,10 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 	 * if either value is NaN (in which case UCOMISD sets the PF flag).
 	 */
 	if (!(_mm_cvtsd_f64(e_d_abs) == _mm_cvtsd_f64(TH_LOG2))) {
+		/* Compensare for _mm_max_sd's weird NaN handling. If either e_a or
+		 * e_b is NaN, we make sure that both fraction and exponent are set
+		 * to (quiet) NaN.
+		 */
 		const __m128d e_r_isnan = _mm_cmpunord_sd(e_a, e_b);
 		set_exponent<0>(_mm_or_pd(e_r, e_r_isnan));
 		set_fraction<0>(_mm_or_pd(f_r, e_r_isnan));
