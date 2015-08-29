@@ -362,8 +362,13 @@ extended_double::add_nonuniform_exponents_slowpath(const extended_double& v)
 	double e_r = std::max(e_a, e_b);
 	double f_r = (e_d < 0.0) ? f_b : f_a;
 	if (!(std::fabs(e_d) == FRACTION_RESCALING_THRESHOLD_LOG2)) {
-		set_exponent(e_r);
-		set_fraction(f_r);
+		/* std::max(a,b) does (a < b) ? b : a. Thus, it will propagate a NaN
+		 * value of a, but not of b. Therefore, force exponent and fraction to
+		 * NaN if e_b is NaN.
+		 */
+		const bool is_nan = !(e_b == e_b);
+		set_exponent(is_nan ? std::numeric_limits<double>::quiet_NaN() : e_r);
+		set_fraction(is_nan ? std::numeric_limits<double>::quiet_NaN() : f_r);
 		return;
 	}
 
