@@ -51,28 +51,28 @@
 #endif
 
 struct extended_double {
-    /**
-     * Base-2 Logarithm of rescaling threshold.
-     */
-    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 512;
-    
-    /**
-     * Base-2 double Logarithm of rescaling threshold.
-     */
-    static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2_LOG2 = 9;
-    ED_ASSERT_STATIC((int32_t(1) << FRACTION_RESCALING_THRESHOLD_LOG2_LOG2)
-                     == FRACTION_RESCALING_THRESHOLD_LOG2);
-    
-    /**
-     * Rescaling threshold, i.e. 2^FRACTION_RESCALING_THRESHOLD_LOG2
-     */
-    static const double FRACTION_RESCALING_THRESHOLD;
-    
-    /**
-     * Rescaling threshold, i.e. 2^-FRACTION_RESCALING_THRESHOLD_LOG2
-     */
-    static const double FRACTION_RESCALING_THRESHOLD_INV;
-    
+	/**
+	 * Base-2 Logarithm of rescaling threshold.
+	 */
+	static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2 = 512;
+
+	/**
+	 * Base-2 double Logarithm of rescaling threshold.
+	 */
+	static const int32_t FRACTION_RESCALING_THRESHOLD_LOG2_LOG2 = 9;
+	ED_ASSERT_STATIC((int32_t(1) << FRACTION_RESCALING_THRESHOLD_LOG2_LOG2)
+					 == FRACTION_RESCALING_THRESHOLD_LOG2);
+
+	/**
+	 * Rescaling threshold, i.e. 2^FRACTION_RESCALING_THRESHOLD_LOG2
+	 */
+	static const double FRACTION_RESCALING_THRESHOLD;
+
+	/**
+	 * Rescaling threshold, i.e. 2^-FRACTION_RESCALING_THRESHOLD_LOG2
+	 */
+	static const double FRACTION_RESCALING_THRESHOLD_INV;
+
 	/**
 	 * Default constructor for extended_double, sets the value to 0.
 	 */
@@ -90,18 +90,18 @@ struct extended_double {
 	:m_fraction(v)
 	{
 		set_exponent(0);
-        const double f = std::fabs(m_fraction);
+		const double f = std::fabs(m_fraction);
 		/* The weird double-negation ensures that the test succeeds for NaN */
-        if (!((f >= 1.0) &&
-              (f < FRACTION_RESCALING_THRESHOLD)))
-            normalize_slowpath();
+		if (!((f >= 1.0) &&
+			  (f < FRACTION_RESCALING_THRESHOLD)))
+			normalize_slowpath();
 		check_consistency();
 	}
-    
-    /**
-     * Compute 2^i for integral i.
-     */
-    static extended_double pow2(int64_t exponent);
+
+	/**
+	 * Compute 2^i for integral i.
+	 */
+	static extended_double pow2(int64_t exponent);
 
 	/**
 	 * Returns the fractional part of an extended_double.
@@ -162,10 +162,10 @@ struct extended_double {
 			 * mask of 0x600 = 11000000000 ensures that only the leading bits
 			 * are tested.
 			 */
-			const __m128i IEEE754_CMP_ADJ = _mm_set_epi64x(
-					0, (int64_t(0x401) << IEEE754_DOUBLE_MAN_BITS));
-			const __m128i IEEE754_CMP_MASK = _mm_set_epi64x(
-					0, (int64_t(0x600) << IEEE754_DOUBLE_MAN_BITS));
+			const __m128i IEEE754_CMP_ADJ =
+			_mm_set_epi64x(0, (int64_t(0x401) << IEEE754_DOUBLE_MAN_BITS));
+			const __m128i IEEE754_CMP_MASK =
+			_mm_set_epi64x(0, (int64_t(0x600) << IEEE754_DOUBLE_MAN_BITS));
 			const __m128i f_r_cmp = _mm_add_epi16(_mm_castpd_si128(f_r),
 												  IEEE754_CMP_ADJ);
 			if (!_mm_test_all_zeros(f_r_cmp, IEEE754_CMP_MASK))
@@ -177,7 +177,7 @@ struct extended_double {
 
 			/* Handle over- or underflowed fraction */
 			if ((f_abs >= FRACTION_RESCALING_THRESHOLD)
-			    || (f_abs < 1.0))
+				|| (f_abs < 1.0))
 				normalize_sum_uniform_exponents_slowpath();
 #endif
 		}
@@ -185,12 +185,12 @@ struct extended_double {
 			add_nonuniform_exponents_slowpath(v);
 
 		check_consistency();
-        return *this;
-    }
-    
+		return *this;
+	}
+
 	ED_ALWAYS_INLINE
 	extended_double& operator-=(extended_double v) {
-        *this += -v;
+		*this += -v;
 		return *this;
 	}
 
@@ -219,7 +219,7 @@ struct extended_double {
 		set_exponent(ep);
 		set_fraction(fp);
 
-        /* Result should be normalized now */
+		/* Result should be normalized now */
 		check_consistency();
 		return *this;
 	}
@@ -262,7 +262,7 @@ struct extended_double {
 	}
 
 	friend extended_double fabs(const extended_double& v);
-    
+
 	friend double log(const extended_double& v);
 
 	friend bool operator<(extended_double a, extended_double b);
@@ -295,7 +295,7 @@ private:
 
 	/**
 	 * Raw exponent of IEEE754 double values +/- Infinity.
- 	 */
+	 */
 	static const uint32_t IEEE754_DOUBLE_EXP_INF_RAW = 2047;
 
 	/**
@@ -455,7 +455,7 @@ private:
 	/**
 	 * Allows the logical exponent to be easy retrieved in GDB.
 	 */
-    double get_exponent();
+	double get_exponent();
 #endif
 
 	/**
@@ -465,25 +465,25 @@ private:
 	 * depending on whether SSE is enabled, and on whether both NaN are
 	 * represented by exactly the same bit pattern.
 	 */
-    ED_ALWAYS_INLINE
-    static bool
-    are_exponents_uniform(const extended_double& a, const extended_double& b) {
+	ED_ALWAYS_INLINE
+	static bool
+	are_exponents_uniform(const extended_double& a, const extended_double& b) {
 #if ED_ENABLE_SSE
 		/* The bitwise comparison has indeterminate result for NaN exponents! */
-        const __m128d a_e = _mm_set_sd(a.m_exponent_raw);
-        const __m128d b_e = _mm_set_sd(b.m_exponent_raw);
-        const __m128i eq = _mm_castpd_si128(_mm_xor_pd(a_e, b_e));
-        return _mm_test_all_zeros(eq, eq);
+		const __m128d a_e = _mm_set_sd(a.m_exponent_raw);
+		const __m128d b_e = _mm_set_sd(b.m_exponent_raw);
+		const __m128i eq = _mm_castpd_si128(_mm_xor_pd(a_e, b_e));
+		return _mm_test_all_zeros(eq, eq);
 #else
-        /* It's tempting to compare the raw exponents here, but that is dangerous.
-         * Due to the XOR mask, the raw exponents might appear to be NaN, which
-         * have strange comparison semantics. Note that it *might* still be safe
-         * to use the raw exponents here, but as long as there's no proof that is
-         * is, let's rather be safe than sorry.
-         */
-        return (a.exponent() == b.exponent());
+		/* It's tempting to compare the raw exponents here, but that is dangerous.
+		 * Due to the XOR mask, the raw exponents might appear to be NaN, which
+		 * have strange comparison semantics. Note that it *might* still be safe
+		 * to use the raw exponents here, but as long as there's no proof that is
+		 * is, let's rather be safe than sorry.
+		 */
+		return (a.exponent() == b.exponent());
 #endif
-    }
+	}
 
 	/**
 	 * Make sure the two values have the same exponent while retaining their
@@ -492,11 +492,11 @@ private:
 	 * The smaller (absolute) value may be rounded down to zero, if the
 	 * exponent difference is large.
 	 */
-    ED_ALWAYS_INLINE
-    static void make_exponents_uniform(extended_double& a, extended_double& b) {
-        if (!are_exponents_uniform(a, b))
-            make_exponents_uniform_slowpath(a, b);
-    }
+	ED_ALWAYS_INLINE
+	static void make_exponents_uniform(extended_double& a, extended_double& b) {
+		if (!are_exponents_uniform(a, b))
+			make_exponents_uniform_slowpath(a, b);
+	}
 
 	void check_consistency() const {
 #if ED_ENABLE_ASSERTS_NORMALIZATION
@@ -524,11 +524,11 @@ private:
 
 	void normalize_sum_uniform_exponents_slowpath();
 
-    void add_nonuniform_exponents_slowpath(const extended_double& v);
-    
-    static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
-    
-    double convert_to_double() const;
+	void add_nonuniform_exponents_slowpath(const extended_double& v);
+
+	static void make_exponents_uniform_slowpath(extended_double& a, extended_double& b);
+
+	double convert_to_double() const;
 };
 
 ED_ALWAYS_INLINE
@@ -599,7 +599,7 @@ extended_double fabs(const extended_double& v) {
 ED_ALWAYS_INLINE
 double log(const extended_double& v) {
 	return std::log(v.fraction()) + (static_cast<double>(v.exponent())
-                                     * extended_double::LN2);
+									 * extended_double::LN2);
 }
 
 ED_ALWAYS_INLINE
