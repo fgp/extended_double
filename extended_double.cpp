@@ -115,25 +115,44 @@ extended_double::normalize_slowpath()
 
 void
 extended_double::normalize_sum_uniform_exponents_slowpath() {
+    /* Abbreviations for various constants */
     const __m128d TH = _mm_set_sd(FRACTION_RESCALING_THRESHOLD);
     const __m128d TH_INV = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_INV);
     const __m128d TH_LOG2 = _mm_set_sd(FRACTION_RESCALING_THRESHOLD_LOG2);
     const __m128d TH_INV_LOG2 = _mm_set_sd(-FRACTION_RESCALING_THRESHOLD_LOG2);
 
+    /* We assume that the fraction is *not* already normalized, and that it
+     * is the result of adding two normalized fractions. The fraction will
+     * thus either be zero, +/- Infinity, NaN, or lie within
+     *    [ 2^-IEEE754_DOUBLE_MAN_BITS , 1.0)
+     *  U [ FRACTION_RESCALING_THRESHOLD, 2*FRACTION_RESCALING_THRESHOLD )
+     *
+     * It thus suffices to set s to 1/FRACTION_RESCALING_THRESHOLD if the
+     * fraction exceeds the threshold, and to FRACTION_RESCALING_THRESHOLD
+     * otherwise.
+     */
     ED_ASSERT_NORMALIZATION(!((std::fabs(fraction()) >= 1.0)
                               && (std::fabs(fraction()) < FRACTION_RESCALING_THRESHOLD)));
     const __m128d f = fraction_m128d();
     const __m128d f_abs = mm_abs_sd(f);
     const __m128d s_up = _mm_cmplt_sd(f_abs, TH);
     const __m128d f_neq0 = _mm_cmpneq_sd(f, _mm_setzero_pd());
-
     const __m128d s = _mm_blendv_pd(TH_INV, TH, s_up);
     const __m128d d = _mm_blendv_pd(TH_LOG2, TH_INV_LOG2, s_up);
 
+    /* Multiply fraction with s and add d = log2(s) to exponent. */
     const __m128d fp = _mm_mul_sd(f, s);
+    const __m128d ep = _mm_add_sd(exponent_m128d(), d);
     set_fraction<0>(fp);
 
-    const __m128d ep = _mm_add_sd(exponent_m128d(), d);
+    /* The above yields the correct result for a fractions other than zero, since
+     * for +/-Infinity and NaN, the sum of exponents computed in operator+=
+     * will have the correct value.
+     *
+     * If the fraction is zero, however, the exponent must be set to -Infinity,
+     * which corresponds to raw value 0. The bitwise AND of the resulting raw
+     * exponent (after adding d, and logical-> raw transformation) ensures this.
+     */
     const __m128d ep_raw = _mm_and_pd(mm_exponent_mask_pd(ep), f_neq0);
     set_exponent_raw<0>(ep_raw);
 }
